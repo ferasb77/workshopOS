@@ -1,56 +1,82 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState } from "react";
+import { login, type LoginState } from "../actions";
+
+const initialState: LoginState = {
+  error: "",
+};
 
 export function LoginForm() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [state, formAction, pending] = useActionState(
+    login,
+    initialState
+  );
 
   return (
-    <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
-      <h1 className="mb-2 text-3xl font-bold">
-        WorkshopOS
-      </h1>
+    <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
+      <div className="mb-8 text-center">
+        <h1 className="text-4xl font-bold text-slate-900">
+          WorkshopOS
+        </h1>
 
-      <p className="mb-8 text-slate-500">
-        Sign in to continue
-      </p>
+        <p className="mt-2 text-slate-500">
+          Sign in to continue
+        </p>
+      </div>
 
-      <form className="space-y-5">
-
+      <form action={formAction} className="space-y-6">
         <div>
-          <label className="mb-2 block text-sm font-medium">
+          <label
+            htmlFor="email"
+            className="mb-2 block text-sm font-medium text-slate-700"
+          >
             Email
           </label>
 
           <input
+            id="email"
+            name="email"
             type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border p-3"
+            required
+            autoComplete="email"
+            placeholder="you@example.com"
+            className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-slate-900"
           />
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-medium">
+          <label
+            htmlFor="password"
+            className="mb-2 block text-sm font-medium text-slate-700"
+          >
             Password
           </label>
 
           <input
+            id="password"
+            name="password"
             type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-lg border p-3"
+            required
+            autoComplete="current-password"
+            placeholder="Password"
+            className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-slate-900"
           />
         </div>
 
+        {state.error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {state.error}
+          </div>
+        )}
+
         <button
           type="submit"
-          className="w-full rounded-lg bg-slate-900 py-3 font-medium text-white hover:bg-slate-800"
+          disabled={pending}
+          className="w-full rounded-lg bg-slate-900 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Sign In
+          {pending ? "Signing In..." : "Sign In"}
         </button>
-
       </form>
     </div>
   );
