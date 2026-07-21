@@ -8,7 +8,7 @@ export async function checkInParticipant(
   _: CheckInResult | null,
   formData: FormData
 ): Promise<CheckInResult> {
-  const values = {
+const values = {
   workshopSlug: formData.get("workshopSlug"),
   firstName: formData.get("firstName"),
   lastName: formData.get("lastName"),
@@ -21,23 +21,6 @@ export async function checkInParticipant(
 console.log(values);
 
 const parsed = participantSchema.safeParse(values);
-    workshopSlug: formData.get("workshopSlug"),
-    firstName: formData.get("firstName"),
-    lastName: formData.get("lastName"),
-    email: formData.get("email"),
-    mobile: formData.get("mobile"),
-    company: formData.get("company"),
-    jobTitle: formData.get("jobTitle"),
-    dietaryRequirements: null,
-  });
-
-  if (!parsed.success) {
-    return {
-      success: false,
-      message: JSON.stringify(values),
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
 
   const supabase = await createClient();
 
