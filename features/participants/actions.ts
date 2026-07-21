@@ -8,7 +8,19 @@ export async function checkInParticipant(
   _: CheckInResult | null,
   formData: FormData
 ): Promise<CheckInResult> {
-  const parsed = participantSchema.safeParse({
+  const values = {
+  workshopSlug: formData.get("workshopSlug"),
+  firstName: formData.get("firstName"),
+  lastName: formData.get("lastName"),
+  email: formData.get("email"),
+  mobile: formData.get("mobile"),
+  company: formData.get("company"),
+  jobTitle: formData.get("jobTitle"),
+};
+
+console.log(values);
+
+const parsed = participantSchema.safeParse(values);
     workshopSlug: formData.get("workshopSlug"),
     firstName: formData.get("firstName"),
     lastName: formData.get("lastName"),
