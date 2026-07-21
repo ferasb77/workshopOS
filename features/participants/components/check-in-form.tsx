@@ -53,7 +53,8 @@ export function CheckInForm({
           id="firstName"
           name="firstName"
           autoComplete="given-name"
-          className="w-full rounded-xl border border-slate-300 px-4 py-3 transition outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+          required
+          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-black placeholder:text-slate-400 transition outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
         />
       </div>
 
@@ -69,7 +70,8 @@ export function CheckInForm({
           id="lastName"
           name="lastName"
           autoComplete="family-name"
-          className="w-full rounded-xl border border-slate-300 px-4 py-3 transition outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+          required
+          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-black placeholder:text-slate-400 transition outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
         />
       </div>
 
@@ -86,7 +88,8 @@ export function CheckInForm({
           type="email"
           name="email"
           autoComplete="email"
-          className="w-full rounded-xl border border-slate-300 px-4 py-3 transition outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+          required
+          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-black placeholder:text-slate-400 transition outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
         />
       </div>
 
@@ -102,7 +105,8 @@ export function CheckInForm({
           id="mobile"
           name="mobile"
           autoComplete="tel"
-          className="w-full rounded-xl border border-slate-300 px-4 py-3 transition outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+          required
+          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-black placeholder:text-slate-400 transition outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
         />
       </div>
 
@@ -118,7 +122,8 @@ export function CheckInForm({
           id="company"
           name="company"
           autoComplete="organization"
-          className="w-full rounded-xl border border-slate-300 px-4 py-3 transition outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+          required
+          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-black placeholder:text-slate-400 transition outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
         />
       </div>
 
@@ -134,23 +139,14 @@ export function CheckInForm({
           id="jobTitle"
           name="jobTitle"
           autoComplete="organization-title"
-          className="w-full rounded-xl border border-slate-300 px-4 py-3 transition outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+          required
+          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-black placeholder:text-slate-400 transition outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
         />
       </div>
 
       {!state.success && state.message && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <p className="font-semibold">{state.message}</p>
-
-          {state.fieldErrors && (
-            <ul className="mt-2 list-disc pl-5">
-              {Object.entries(state.fieldErrors).map(([field, errors]) => (
-                <li key={field}>
-                  <strong>{field}:</strong> {errors?.join(", ")}
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
       )}
 
