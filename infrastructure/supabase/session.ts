@@ -34,8 +34,24 @@ export async function updateSession(request: NextRequest) {
 
   // Refresh the user's authentication state.
   // Supabase now recommends getClaims() for authorization checks.
-  // At this stage we're only refreshing the session.
-  await supabase.auth.getClaims();
+  const { data } = await supabase.auth.getClaims();
+  const isAuthenticated = Boolean(data?.claims);
+
+  const { pathname } = request.nextUrl;
+  const isProtectedRoute = pathname.startsWith("/dashboard");
+  const isLoginRoute = pathname === "/login";
+
+  if (isProtectedRoute && !isAuthenticated) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    return NextResponse.redirect(loginUrl);
+  }
+
+  if (isLoginRoute && isAuthenticated) {
+    const dashboardUrl = request.nextUrl.clone();
+    dashboardUrl.pathname = "/dashboard";
+    return NextResponse.redirect(dashboardUrl);
+  }
 
   return response;
 }

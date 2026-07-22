@@ -1,28 +1,54 @@
-export default function DashboardPage() {
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { getSessionContext } from "@/infrastructure/session/session-context";
+
+export default async function DashboardPage() {
+  const session = await getSessionContext();
+
   return (
-    <main className="min-h-screen bg-slate-100 p-10">
-      <div className="mx-auto max-w-7xl">
-        <h1 className="text-4xl font-bold text-slate-900">
-          WorkshopOS Dashboard
-        </h1>
+    <div className="mx-auto max-w-5xl">
+      <h1 className="text-3xl font-bold">
+        Welcome back{session.fullName ? `, ${session.fullName}` : ""}
+      </h1>
 
-        <p className="mt-3 text-slate-600">
-          Welcome! Authentication is working successfully.
-        </p>
+      <p className="mt-2 text-muted-foreground">
+        {session.organizationName} · {session.workspaceName}
+      </p>
 
-        <div className="mt-8 rounded-xl bg-white p-6 shadow">
-          <h2 className="text-xl font-semibold">
-            Next Steps
-          </h2>
+      <div className="mt-8 grid gap-4 sm:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Experiences</CardTitle>
+            <CardDescription>
+              Workshops and other experiences you run.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Full experience management is coming in a later sprint.
+            </p>
+          </CardContent>
+        </Card>
 
-          <ul className="mt-4 list-disc space-y-2 pl-5 text-slate-700">
-            <li>Create Workshops</li>
-            <li>Manage Participants</li>
-            <li>Check In Attendees</li>
-            <li>Generate Certificates</li>
-          </ul>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Participants</CardTitle>
+            <CardDescription>
+              People enrolled and checked in across experiences.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Participant evidence is coming in a later sprint.
+            </p>
+          </CardContent>
+        </Card>
       </div>
-    </main>
+    </div>
   );
 }

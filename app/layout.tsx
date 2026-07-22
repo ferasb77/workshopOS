@@ -1,13 +1,21 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Cormorant_Garamond, Geist_Mono, Inter } from "next/font/google";
 
 import "./globals.css";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { BRANDING } from "@/config/branding";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
+  weight: ["400", "500"],
+});
+
+const cormorantGaramond = Cormorant_Garamond({
+  variable: "--font-display",
+  subsets: ["latin"],
+  weight: ["400", "600"],
 });
 
 const geistMono = Geist_Mono({
@@ -16,8 +24,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "WorkshopOS",
-  description: "Workshop Delivery Platform",
+  title: BRANDING.productName,
+  description: BRANDING.tagline,
+  icons: {
+    icon: BRANDING.favicon,
+  },
 };
 
 export default function RootLayout({
@@ -28,7 +39,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${inter.variable} ${cormorantGaramond.variable} ${geistMono.variable} bg-night text-ivory antialiased`}
       >
         <TooltipProvider>
           {children}

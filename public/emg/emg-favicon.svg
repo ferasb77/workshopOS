@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" role="img" aria-labelledby="title">
+  <title id="title">Enable My Growth favicon</title>
+  <rect x="16" y="16" width="768" height="768" rx="150" fill="#0A0A0F"/>
+  <g transform="translate(58 56) scale(.86)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M400 95 C455 95 690 300 690 375 C690 460 590 660 505 690 C420 720 155 610 130 525 C105 440 315 95 400 95 Z" stroke="#C9A96E" stroke-width="128"/>
+    <path d="M400 95 C455 95 690 300 690 375 C690 460 590 660 505 690 C420 720 155 610 130 525 C105 440 315 95 400 95 Z" stroke="#EDEAE3" stroke-width="116"/>
+    <path d="M400 95 C455 95 690 300 690 375 C690 460 590 660 505 690 C420 720 155 610 130 525 C105 440 315 95 400 95 Z" stroke="#111118" stroke-width="100"/>
+    <path d="M684 404 C675 510 595 648 505 690" stroke="#C9A96E" stroke-width="100"/>
+    <path d="M505 690 C420 720 240 650 165 575" stroke="#EDEAE3" stroke-width="116"/>
+    <path d="M505 690 C420 720 240 650 165 575" stroke="#111118" stroke-width="100"/>
+  </g>
+</svg>
