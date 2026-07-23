@@ -120,11 +120,6 @@ export default async function ExperienceDetailPage({ params, searchParams }: Pro
             {experience.venue ? ` · ${experience.venue}` : ""}
             {` · ${participants.length} / ${experience.capacity} registered`}
           </p>
-          {(experience.clientName || experience.engagementTitle) && (
-            <p className="mt-1 text-sm text-muted-foreground">
-              {[experience.clientName, experience.engagementTitle].filter(Boolean).join(" · ")}
-            </p>
-          )}
         </div>
 
         <Button
@@ -136,7 +131,12 @@ export default async function ExperienceDetailPage({ params, searchParams }: Pro
         </Button>
       </div>
 
-      {registrationOpen && <RegistrationLinkPanel url={registrationUrl} />}
+      {/* The created banner above already surfaces the registration link
+          with its own copy button — showing this panel too while that
+          banner is still up would repeat the same URL twice in a row. It
+          reappears once the banner is dismissed, which drops `created` from
+          the URL and re-renders this Server Component. */}
+      {registrationOpen && created !== "true" && <RegistrationLinkPanel url={registrationUrl} />}
 
       <ExperienceTabs slug={experience.slug} activeTab={activeTab} />
 

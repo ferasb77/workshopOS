@@ -58,7 +58,7 @@ export function FacilitatorCard({ facilitator }: Props) {
 
           <div className="mt-auto flex items-center justify-between border-t border-border-subtle pt-3 text-sm">
             <span className="text-muted-foreground">
-              {facilitator.workshopsDelivered} workshop{facilitator.workshopsDelivered === 1 ? "" : "s"}
+              {facilitator.workshopsDelivered} experience{facilitator.workshopsDelivered === 1 ? "" : "s"}
             </span>
             {facilitator.averageSatisfaction !== null ? (
               <span className="flex items-center gap-1 font-medium text-gold">

@@ -2,17 +2,6 @@ import { z } from "zod";
 
 import type { ExperienceStatus } from "@/infrastructure/repositories/dashboard";
 
-export const PROGRAM_TYPES = [
-  "Workshop",
-  "Program",
-  "Coaching Engagement",
-  "Assessment",
-  "Conference",
-  "Community of Practice",
-  "Consulting Engagement",
-  "Other",
-] as const;
-
 export const COUNTRIES = [
   "Saudi Arabia",
   "UAE",
@@ -81,10 +70,13 @@ function emptyToUndefined(value: unknown) {
 }
 
 const experienceFieldsSchema = z.object({
-  // Section 1 — Program Details
+  // Section 1 — Client and Engagement
+  clientId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  engagementId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+
+  // Section 2 — Program Details
   title: z.string().trim().min(1, "Title is required"),
   experienceType: z.enum(EXPERIENCE_TYPES).default("workshop"),
-  programType: z.preprocess(emptyToUndefined, z.enum(PROGRAM_TYPES).optional()),
   description: z.string().trim().optional(),
   tags: z
     .string()
@@ -97,11 +89,7 @@ const experienceFieldsSchema = z.object({
     ),
   status: z.enum(["draft", "active", "completed", "cancelled"]).default("active"),
 
-  // Section 1b — Client / Engagement
-  clientId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
-  engagementId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
-
-  // Section 2 — Schedule and Location
+  // Section 3 — Schedule and Location
   startDate: z.string().trim().min(1, "Start date is required"),
   endDate: z.string().trim().min(1, "End date is required"),
   venueName: z.string().trim().min(1, "Venue is required"),
@@ -109,20 +97,8 @@ const experienceFieldsSchema = z.object({
   country: z.preprocess(emptyToUndefined, z.enum(COUNTRIES).optional()),
   capacity: z.coerce.number().int().min(1, "Capacity must be at least 1"),
 
-  // Section 3 — Client Details
-  clientName: z.string().trim().optional(),
-  clientContactName: z.string().trim().optional(),
-  clientContactEmail: z.preprocess(
-    emptyToUndefined,
-    z.string().trim().email("Enter a valid email address").optional()
-  ),
-
   // Section 4 — Facilitator
-  facilitatorName: z.string().trim().optional(),
-  facilitatorEmail: z.preprocess(
-    emptyToUndefined,
-    z.string().trim().email("Enter a valid email address").optional()
-  ),
+  facilitatorId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
   facilitatorNotes: z.string().trim().optional(),
 
   // Section 5 — Logistics and Materials

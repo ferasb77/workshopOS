@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/infrastructure/supabase/server";
 
-import { createFacilitatorSchema } from "./schema";
+import { createFacilitatorSchema, updateFacilitatorSchema } from "./schema";
 
 export type FacilitatorFormValues = Record<string, string | string[]>;
 
@@ -115,4 +115,81 @@ export async function createFacilitator(
 
   revalidatePath("/dashboard/facilitators");
   redirect(`/dashboard/facilitators/${inserted.id}`);
+}
+
+export type UpdateFacilitatorResult =
+  | { success: true }
+  | {
+      success: false;
+      error: string;
+      fieldErrors?: Record<string, string[]>;
+      values: FacilitatorFormValues;
+    };
+
+export async function updateFacilitator(
+  facilitatorId: string,
+  _prevState: UpdateFacilitatorResult | null,
+  formData: FormData
+): Promise<UpdateFacilitatorResult> {
+  const values = readRawValues(formData);
+
+  const parsed = updateFacilitatorSchema.safeParse(values);
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: "Please correct the highlighted fields.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+      values,
+    };
+  }
+
+  const data = parsed.data;
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("facilitators")
+    .update({
+      first_name: data.firstName,
+      last_name: data.lastName,
+      email: data.email,
+      phone: data.phone || null,
+      title: data.title || null,
+      organization: data.organization || null,
+      years_experience: data.yearsExperience ?? null,
+      bio: data.bio || null,
+      expertise_areas: data.expertiseAreas,
+      certifications: data.certifications,
+      languages: data.languages,
+      regions: data.regions,
+      willing_to_travel: data.willingToTravel,
+      travel_notes: data.travelNotes || null,
+      passport_expiry: data.passportExpiry || null,
+      visa_countries: data.visaCountries,
+      availability_status: data.availabilityStatus,
+      availability_notes: data.availabilityNotes || null,
+    })
+    .eq("id", facilitatorId);
+
+  if (error) {
+    if (error.code === "23505") {
+      return {
+        success: false,
+        error: "A facilitator with this email already exists.",
+        values,
+      };
+    }
+
+    console.error("Failed to update facilitator", error);
+
+    return {
+      success: false,
+      error: "Unable to save changes. Please try again.",
+      values,
+    };
+  }
+
+  revalidatePath(`/dashboard/facilitators/${facilitatorId}`);
+  revalidatePath("/dashboard/facilitators");
+  redirect(`/dashboard/facilitators/${facilitatorId}`);
 }

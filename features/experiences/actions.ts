@@ -22,7 +22,6 @@ export type CreateExperienceResult =
 const FORM_FIELDS = [
   "title",
   "experienceType",
-  "programType",
   "description",
   "tags",
   "status",
@@ -34,11 +33,7 @@ const FORM_FIELDS = [
   "city",
   "country",
   "capacity",
-  "clientName",
-  "clientContactName",
-  "clientContactEmail",
-  "facilitatorName",
-  "facilitatorEmail",
+  "facilitatorId",
   "facilitatorNotes",
   "materialsNotes",
   "logisticsNotes",
@@ -52,6 +47,37 @@ function readRawValues(formData: FormData): ExperienceFormValues {
   }
 
   return values;
+}
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * The `experiences` table stores facilitator name/email as denormalized
+ * text columns (no facilitator_id FK) — the form now selects an existing
+ * facilitator record rather than typing free text, so this resolves the
+ * selected id to the two text columns server-side. Doing the lookup here
+ * (not trusting client-submitted name/email) is what actually prevents the
+ * typo/duplicate-facilitator drift the free-text field used to allow.
+ */
+async function resolveFacilitator(
+  supabase: SupabaseServerClient,
+  facilitatorId: string | undefined
+): Promise<{ name: string | null; email: string | null }> {
+  if (!facilitatorId) {
+    return { name: null, email: null };
+  }
+
+  const { data } = await supabase
+    .from("facilitators")
+    .select("first_name, last_name, email")
+    .eq("id", facilitatorId)
+    .maybeSingle();
+
+  if (!data) {
+    return { name: null, email: null };
+  }
+
+  return { name: `${data.first_name} ${data.last_name}`.trim(), email: data.email };
 }
 
 export async function createExperience(
@@ -94,13 +120,14 @@ export async function createExperience(
     clientId = engagement?.client_id ?? null;
   }
 
+  const facilitator = await resolveFacilitator(supabase, data.facilitatorId);
+
   const { data: inserted, error } = await supabase
     .from("experiences")
     .insert({
       title: data.title,
       experience_type: data.experienceType,
       description: data.description || null,
-      program_type: data.programType ?? null,
       tags: data.tags,
       status: data.status,
       client_id: clientId,
@@ -111,11 +138,8 @@ export async function createExperience(
       city: data.city || null,
       country: data.country ?? null,
       capacity: data.capacity,
-      client_name: data.clientName || null,
-      client_contact_name: data.clientContactName || null,
-      client_contact_email: data.clientContactEmail ?? null,
-      facilitator_name: data.facilitatorName || null,
-      facilitator_email: data.facilitatorEmail ?? null,
+      facilitator_name: facilitator.name,
+      facilitator_email: facilitator.email,
       facilitator_notes: data.facilitatorNotes || null,
       materials_notes: data.materialsNotes || null,
       logistics_notes: data.logisticsNotes || null,
@@ -237,13 +261,14 @@ export async function updateExperience(
     clientId = engagement?.client_id ?? null;
   }
 
+  const facilitator = await resolveFacilitator(supabase, data.facilitatorId);
+
   const { error } = await supabase
     .from("experiences")
     .update({
       title: data.title,
       experience_type: data.experienceType,
       description: data.description || null,
-      program_type: data.programType ?? null,
       tags: data.tags,
       status: data.status,
       client_id: clientId,
@@ -254,11 +279,8 @@ export async function updateExperience(
       city: data.city || null,
       country: data.country ?? null,
       capacity: data.capacity,
-      client_name: data.clientName || null,
-      client_contact_name: data.clientContactName || null,
-      client_contact_email: data.clientContactEmail ?? null,
-      facilitator_name: data.facilitatorName || null,
-      facilitator_email: data.facilitatorEmail ?? null,
+      facilitator_name: facilitator.name,
+      facilitator_email: facilitator.email,
       facilitator_notes: data.facilitatorNotes || null,
       materials_notes: data.materialsNotes || null,
       logistics_notes: data.logisticsNotes || null,

@@ -10,9 +10,10 @@ import {
 import type { AttentionItem } from "@/infrastructure/repositories/dashboard";
 
 const REASON_ICON: Record<AttentionItem["reason"], LucideIcon> = {
-  capacity_remaining: AlertTriangle,
+  low_registration: AlertTriangle,
   no_participants: AlertTriangle,
   survey_not_sent: Mail,
+  survey_partially_sent: Mail,
   engagement_no_experiences: Briefcase,
 };
 

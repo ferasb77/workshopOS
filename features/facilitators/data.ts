@@ -11,6 +11,7 @@ export type FacilitatorSummary = {
   firstName: string;
   lastName: string;
   fullName: string;
+  email: string;
   title: string | null;
   organization: string | null;
   photoUrl: string | null;
@@ -106,6 +107,7 @@ export async function getAllFacilitators(): Promise<FacilitatorSummary[]> {
       firstName: row.first_name,
       lastName: row.last_name,
       fullName: `${row.first_name} ${row.last_name}`,
+      email: row.email,
       title: row.title,
       organization: row.organization,
       photoUrl: row.photo_url,

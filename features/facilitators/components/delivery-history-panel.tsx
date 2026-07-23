@@ -35,12 +35,12 @@ export function DeliveryHistoryPanel({ history }: Props) {
     <Card className="bg-surface-elevated">
       <CardHeader>
         <CardTitle>Delivery History</CardTitle>
-        <CardDescription>Workshops delivered, pulled live from workshop records.</CardDescription>
+        <CardDescription>Experiences delivered, pulled live from experience records.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-lg border border-border-subtle bg-night/40 p-4">
-            <p className="text-sm text-muted-foreground">Total Workshops Delivered</p>
+            <p className="text-sm text-muted-foreground">Total Experiences Delivered</p>
             <p className="mt-1 font-heading text-2xl font-semibold text-gold">
               {history.totalWorkshops}
             </p>
@@ -70,7 +70,7 @@ export function DeliveryHistoryPanel({ history }: Props) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Workshop</TableHead>
+                    <TableHead>Experience</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Venue</TableHead>
                     <TableHead className="text-right">Participants</TableHead>

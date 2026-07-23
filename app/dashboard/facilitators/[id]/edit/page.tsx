@@ -2,13 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { FacilitatorEditForm } from "@/features/facilitators/components/facilitator-edit-form";
 import { getFacilitatorById } from "@/features/facilitators/data";
 
 type Props = {
@@ -33,17 +27,12 @@ export default async function EditFacilitatorPage({ params }: Props) {
         Back to {facilitator.fullName}
       </Link>
 
-      <Card className="bg-surface-elevated">
-        <CardHeader>
-          <CardTitle>Edit Facilitator</CardTitle>
-          <CardDescription>
-            Editing is planned for a later sprint. For now, this is a placeholder.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          This is where {facilitator.fullName}&apos;s profile details can be updated.
-        </CardContent>
-      </Card>
+      <div>
+        <h1 className="text-3xl font-bold">Edit Facilitator</h1>
+        <p className="mt-2 text-muted-foreground">Update {facilitator.fullName}&apos;s profile.</p>
+      </div>
+
+      <FacilitatorEditForm facilitator={facilitator} />
     </div>
   );
 }

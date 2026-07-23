@@ -74,6 +74,14 @@ export function ClientDetail({ client, engagements, history }: Props) {
               </div>
             </div>
           </div>
+
+          <Button
+            variant="secondary"
+            nativeButton={false}
+            render={<Link href={`/dashboard/clients/${client.id}/edit`} />}
+          >
+            Edit
+          </Button>
         </CardContent>
       </Card>
 

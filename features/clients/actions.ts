@@ -150,5 +150,5 @@ export async function updateClient(
 
   revalidatePath(`/dashboard/clients/${clientId}`);
   revalidatePath("/dashboard/clients");
-  return { success: true };
+  redirect(`/dashboard/clients/${clientId}`);
 }

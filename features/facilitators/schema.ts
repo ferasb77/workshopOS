@@ -68,3 +68,11 @@ export const createFacilitatorSchema = z.object({
 });
 
 export type CreateFacilitatorInput = z.infer<typeof createFacilitatorSchema>;
+
+// Same field set as create — editing doesn't loosen or tighten anything.
+// Kept as its own export (rather than every caller importing
+// createFacilitatorSchema) to match the create/update schema pairing used
+// throughout the rest of this codebase (e.g. features/experiences/schema.ts).
+export const updateFacilitatorSchema = createFacilitatorSchema;
+
+export type UpdateFacilitatorInput = z.infer<typeof updateFacilitatorSchema>;

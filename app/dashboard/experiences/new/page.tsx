@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { ExperienceForm } from "@/features/experiences/components/experience-form";
 import { getClientOptions } from "@/features/clients/data";
 import { getEngagementOptions } from "@/features/engagements/data";
+import { getAllFacilitators } from "@/features/facilitators/data";
 
 type Props = {
   searchParams: Promise<{ clientId?: string; engagementId?: string }>;
@@ -11,7 +12,17 @@ type Props = {
 
 export default async function NewExperiencePage({ searchParams }: Props) {
   const { clientId, engagementId } = await searchParams;
-  const [clients, engagements] = await Promise.all([getClientOptions(), getEngagementOptions()]);
+  const [clients, engagements, facilitatorSummaries] = await Promise.all([
+    getClientOptions(),
+    getEngagementOptions(),
+    getAllFacilitators(),
+  ]);
+
+  const facilitators = facilitatorSummaries.map((facilitator) => ({
+    id: facilitator.id,
+    fullName: facilitator.fullName,
+    primaryExpertise: facilitator.expertiseAreas[0] ?? null,
+  }));
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -33,6 +44,7 @@ export default async function NewExperiencePage({ searchParams }: Props) {
       <ExperienceForm
         clients={clients}
         engagements={engagements}
+        facilitators={facilitators}
         defaultClientId={clientId}
         defaultEngagementId={engagementId}
       />

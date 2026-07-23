@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
@@ -25,18 +25,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 
 import { createExperience, type CreateExperienceResult } from "../actions";
-import {
-  COUNTRIES,
-  CREATE_STATUS_OPTIONS,
-  EXPERIENCE_TYPE_LABELS,
-  EXPERIENCE_TYPES,
-  PROGRAM_TYPES,
-} from "../schema";
+import { COUNTRIES, CREATE_STATUS_OPTIONS, EXPERIENCE_TYPE_LABELS, EXPERIENCE_TYPES } from "../schema";
 
 const initialState: CreateExperienceResult = { success: false, error: "", values: {} };
 
 type ClientOption = { id: string; name: string };
 type EngagementOption = { id: string; title: string; clientId: string; clientName: string };
+type FacilitatorOption = { id: string; fullName: string; primaryExpertise: string | null };
 
 function FieldError({ messages }: { messages?: string[] }) {
   if (!messages || messages.length === 0) {
@@ -122,6 +117,7 @@ function SubmitButton() {
 type Props = {
   clients?: ClientOption[];
   engagements?: EngagementOption[];
+  facilitators?: FacilitatorOption[];
   defaultClientId?: string;
   defaultEngagementId?: string;
 };
@@ -129,6 +125,7 @@ type Props = {
 export function ExperienceForm({
   clients = [],
   engagements = [],
+  facilitators = [],
   defaultClientId,
   defaultEngagementId,
 }: Props) {
@@ -144,6 +141,18 @@ export function ExperienceForm({
   // instead of leaving it blank.
   const formKey = !state.success ? JSON.stringify(state.values) : "initial";
 
+  // Controlled only so the engagement list can be filtered to the selected
+  // client — every other field stays uncontrolled/native like the rest of
+  // this form.
+  const [selectedClientId, setSelectedClientId] = useState(field("clientId") || defaultClientId || "");
+
+  const filteredEngagements = useMemo(
+    () => engagements.filter((engagement) => !selectedClientId || engagement.clientId === selectedClientId),
+    [engagements, selectedClientId]
+  );
+
+  const showClientSection = clients.length > 0 || engagements.length > 0;
+
   return (
     <form key={formKey} action={action} className="space-y-6" noValidate>
       {!state.success && state.error && (
@@ -152,8 +161,65 @@ export function ExperienceForm({
         </div>
       )}
 
+      {showClientSection && (
+        <FormSection
+          number={1}
+          title="Client and Engagement"
+          description="Which client and contract this experience belongs to, if any."
+        >
+          <div className="space-y-2">
+            <Label htmlFor="clientId">Client</Label>
+            <Select
+              name="clientId"
+              value={selectedClientId}
+              onValueChange={(next) => setSelectedClientId(next ?? "")}
+              items={clients.map((client) => ({ value: client.id, label: client.name }))}
+            >
+              <SelectTrigger id="clientId" className="w-full">
+                <SelectValue placeholder="No client" />
+              </SelectTrigger>
+              <SelectContent>
+                {clients.map((client) => (
+                  <SelectItem key={client.id} value={client.id}>
+                    {client.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="engagementId">Engagement</Label>
+            <Select
+              key={selectedClientId}
+              name="engagementId"
+              defaultValue={selectedClientId ? defaultEngagementId : undefined}
+              items={filteredEngagements.map((engagement) => ({
+                value: engagement.id,
+                label: `${engagement.title} — ${engagement.clientName}`,
+              }))}
+            >
+              <SelectTrigger id="engagementId" className="w-full">
+                <SelectValue
+                  placeholder={
+                    selectedClientId ? "No engagement" : "Select a client to see its engagements"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {filteredEngagements.map((engagement) => (
+                  <SelectItem key={engagement.id} value={engagement.id}>
+                    {engagement.title} — {engagement.clientName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </FormSection>
+      )}
+
       <FormSection
-        number={1}
+        number={showClientSection ? 2 : 1}
         title="Program Details"
         description="What this experience is and how it's tagged."
       >
@@ -184,14 +250,6 @@ export function ExperienceForm({
             </SelectContent>
           </Select>
         </div>
-
-        <StringSelectField
-          name="programType"
-          label="Program type"
-          placeholder="Select a type"
-          options={PROGRAM_TYPES}
-          defaultValue={field("programType")}
-        />
 
         <div className="space-y-2">
           <Label htmlFor="status">Status</Label>
@@ -238,59 +296,8 @@ export function ExperienceForm({
         </div>
       </FormSection>
 
-      {(clients.length > 0 || engagements.length > 0) && (
-        <FormSection
-          number={2}
-          title="Client and Engagement"
-          description="Which client and contract this experience belongs to, if any."
-        >
-          <div className="space-y-2">
-            <Label htmlFor="clientId">Client</Label>
-            <Select
-              name="clientId"
-              defaultValue={field("clientId") || defaultClientId || undefined}
-              items={clients.map((client) => ({ value: client.id, label: client.name }))}
-            >
-              <SelectTrigger id="clientId" className="w-full">
-                <SelectValue placeholder="No client" />
-              </SelectTrigger>
-              <SelectContent>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="engagementId">Engagement</Label>
-            <Select
-              name="engagementId"
-              defaultValue={field("engagementId") || defaultEngagementId || undefined}
-              items={engagements.map((engagement) => ({
-                value: engagement.id,
-                label: `${engagement.title} — ${engagement.clientName}`,
-              }))}
-            >
-              <SelectTrigger id="engagementId" className="w-full">
-                <SelectValue placeholder="No engagement" />
-              </SelectTrigger>
-              <SelectContent>
-                {engagements.map((engagement) => (
-                  <SelectItem key={engagement.id} value={engagement.id}>
-                    {engagement.title} — {engagement.clientName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </FormSection>
-      )}
-
       <FormSection
-        number={clients.length > 0 || engagements.length > 0 ? 3 : 2}
+        number={showClientSection ? 3 : 2}
         title="Schedule and Location"
         description="When and where this experience runs."
       >
@@ -360,59 +367,35 @@ export function ExperienceForm({
       </FormSection>
 
       <FormSection
-        number={clients.length > 0 || engagements.length > 0 ? 4 : 3}
-        title="Client Details"
-        description="Who this experience is being delivered for."
-      >
-        <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="clientName">Client organization name</Label>
-          <Input id="clientName" name="clientName" defaultValue={field("clientName")} />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="clientContactName">Client contact name</Label>
-          <Input
-            id="clientContactName"
-            name="clientContactName"
-            defaultValue={field("clientContactName")}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="clientContactEmail">Client contact email</Label>
-          <Input
-            id="clientContactEmail"
-            name="clientContactEmail"
-            type="email"
-            defaultValue={field("clientContactEmail")}
-          />
-          <FieldError messages={fieldErrors?.clientContactEmail} />
-        </div>
-      </FormSection>
-
-      <FormSection
-        number={clients.length > 0 || engagements.length > 0 ? 5 : 4}
+        number={showClientSection ? 4 : 3}
         title="Facilitator"
         description="Who is delivering this experience."
       >
-        <div className="space-y-2">
-          <Label htmlFor="facilitatorName">Facilitator name</Label>
-          <Input
-            id="facilitatorName"
-            name="facilitatorName"
-            defaultValue={field("facilitatorName")}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="facilitatorEmail">Facilitator email</Label>
-          <Input
-            id="facilitatorEmail"
-            name="facilitatorEmail"
-            type="email"
-            defaultValue={field("facilitatorEmail")}
-          />
-          <FieldError messages={fieldErrors?.facilitatorEmail} />
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="facilitatorId">Facilitator</Label>
+          <Select
+            name="facilitatorId"
+            defaultValue={field("facilitatorId") || undefined}
+            items={facilitators.map((facilitator) => ({
+              value: facilitator.id,
+              label: facilitator.primaryExpertise
+                ? `${facilitator.fullName} — ${facilitator.primaryExpertise}`
+                : facilitator.fullName,
+            }))}
+          >
+            <SelectTrigger id="facilitatorId" className="w-full">
+              <SelectValue placeholder="No facilitator assigned" />
+            </SelectTrigger>
+            <SelectContent>
+              {facilitators.map((facilitator) => (
+                <SelectItem key={facilitator.id} value={facilitator.id}>
+                  {facilitator.primaryExpertise
+                    ? `${facilitator.fullName} — ${facilitator.primaryExpertise}`
+                    : facilitator.fullName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-2 sm:col-span-2">
@@ -427,7 +410,7 @@ export function ExperienceForm({
       </FormSection>
 
       <FormSection
-        number={clients.length > 0 || engagements.length > 0 ? 6 : 5}
+        number={showClientSection ? 5 : 4}
         title="Logistics and Materials"
         description="What needs to be prepared before the day."
         columns={false}

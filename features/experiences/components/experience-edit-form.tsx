@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,6 @@ import {
   EXPERIENCE_STATUS_TRANSITIONS,
   EXPERIENCE_TYPE_LABELS,
   EXPERIENCE_TYPES,
-  PROGRAM_TYPES,
 } from "../schema";
 import { DeleteExperienceDialog } from "./delete-experience-dialog";
 
@@ -40,6 +39,7 @@ const initialState: UpdateExperienceResult = { success: false, error: "", values
 
 type ClientOption = { id: string; name: string };
 type EngagementOption = { id: string; title: string; clientId: string; clientName: string };
+type FacilitatorOption = { id: string; fullName: string; primaryExpertise: string | null };
 
 /** Postgres returns timestamptz as an ISO string with an offset; the value
  * was originally written as a bare datetime-local string (see actions.ts),
@@ -137,9 +137,18 @@ type Props = {
   experience: ExperienceDetailRecord;
   clients?: ClientOption[];
   engagements?: EngagementOption[];
+  facilitators?: FacilitatorOption[];
+  /** id of the facilitator whose email matches experience.facilitatorEmail, if any. */
+  currentFacilitatorId?: string;
 };
 
-export function ExperienceEditForm({ experience, clients = [], engagements = [] }: Props) {
+export function ExperienceEditForm({
+  experience,
+  clients = [],
+  engagements = [],
+  facilitators = [],
+  currentFacilitatorId,
+}: Props) {
   const boundUpdateExperience = updateExperience.bind(null, experience.id, experience.slug);
   const [state, action] = useActionState(boundUpdateExperience, initialState);
 
@@ -168,6 +177,18 @@ export function ExperienceEditForm({ experience, clients = [], engagements = [] 
     EXPERIENCE_STATUS_TRANSITIONS[experience.status].includes(option.value)
   );
 
+  // Controlled only so the engagement list can be filtered to the selected
+  // client — every other field stays uncontrolled/native like the rest of
+  // this form.
+  const [selectedClientId, setSelectedClientId] = useState(
+    field("clientId", experience.clientId ?? "")
+  );
+
+  const filteredEngagements = useMemo(
+    () => engagements.filter((engagement) => !selectedClientId || engagement.clientId === selectedClientId),
+    [engagements, selectedClientId]
+  );
+
   return (
     <form key={formKey} action={action} className="space-y-6" noValidate>
       {readOnly && (
@@ -183,8 +204,69 @@ export function ExperienceEditForm({ experience, clients = [], engagements = [] 
         </div>
       )}
 
+      {showClientSection && (
+        <FormSection
+          number={1}
+          title="Client and Engagement"
+          description="Which client and contract this experience belongs to, if any."
+        >
+          <div className="space-y-2">
+            <Label htmlFor="clientId">Client</Label>
+            <Select
+              name="clientId"
+              value={selectedClientId}
+              onValueChange={(next) => setSelectedClientId(next ?? "")}
+              disabled={readOnly}
+              items={clients.map((client) => ({ value: client.id, label: client.name }))}
+            >
+              <SelectTrigger id="clientId" className="w-full">
+                <SelectValue placeholder="No client" />
+              </SelectTrigger>
+              <SelectContent>
+                {clients.map((client) => (
+                  <SelectItem key={client.id} value={client.id}>
+                    {client.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="engagementId">Engagement</Label>
+            <Select
+              key={selectedClientId}
+              name="engagementId"
+              defaultValue={
+                selectedClientId ? field("engagementId", experience.engagementId ?? "") || undefined : undefined
+              }
+              disabled={readOnly}
+              items={filteredEngagements.map((engagement) => ({
+                value: engagement.id,
+                label: `${engagement.title} — ${engagement.clientName}`,
+              }))}
+            >
+              <SelectTrigger id="engagementId" className="w-full">
+                <SelectValue
+                  placeholder={
+                    selectedClientId ? "No engagement" : "Select a client to see its engagements"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {filteredEngagements.map((engagement) => (
+                  <SelectItem key={engagement.id} value={engagement.id}>
+                    {engagement.title} — {engagement.clientName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </FormSection>
+      )}
+
       <FormSection
-        number={1}
+        number={showClientSection ? 2 : 1}
         title="Program Details"
         description="What this experience is and how it's tagged."
       >
@@ -226,15 +308,6 @@ export function ExperienceEditForm({ experience, clients = [], engagements = [] 
             </SelectContent>
           </Select>
         </div>
-
-        <StringSelectField
-          name="programType"
-          label="Program type"
-          placeholder="Select a type"
-          options={PROGRAM_TYPES}
-          defaultValue={field("programType", experience.programType ?? "")}
-          disabled={readOnly}
-        />
 
         <div className="space-y-2">
           <Label htmlFor="status">Status</Label>
@@ -280,59 +353,6 @@ export function ExperienceEditForm({ experience, clients = [], engagements = [] 
           <p className="text-xs text-muted-foreground">Comma-separated.</p>
         </div>
       </FormSection>
-
-      {showClientSection && (
-        <FormSection
-          number={2}
-          title="Client and Engagement"
-          description="Which client and contract this experience belongs to, if any."
-        >
-          <div className="space-y-2">
-            <Label htmlFor="clientId">Client</Label>
-            <Select
-              name="clientId"
-              defaultValue={field("clientId", experience.clientId ?? "") || undefined}
-              disabled={readOnly}
-              items={clients.map((client) => ({ value: client.id, label: client.name }))}
-            >
-              <SelectTrigger id="clientId" className="w-full">
-                <SelectValue placeholder="No client" />
-              </SelectTrigger>
-              <SelectContent>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="engagementId">Engagement</Label>
-            <Select
-              name="engagementId"
-              defaultValue={field("engagementId", experience.engagementId ?? "") || undefined}
-              disabled={readOnly}
-              items={engagements.map((engagement) => ({
-                value: engagement.id,
-                label: `${engagement.title} — ${engagement.clientName}`,
-              }))}
-            >
-              <SelectTrigger id="engagementId" className="w-full">
-                <SelectValue placeholder="No engagement" />
-              </SelectTrigger>
-              <SelectContent>
-                {engagements.map((engagement) => (
-                  <SelectItem key={engagement.id} value={engagement.id}>
-                    {engagement.title} — {engagement.clientName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </FormSection>
-      )}
 
       <FormSection
         number={showClientSection ? 3 : 2}
@@ -421,67 +441,35 @@ export function ExperienceEditForm({ experience, clients = [], engagements = [] 
 
       <FormSection
         number={showClientSection ? 4 : 3}
-        title="Client Details"
-        description="Who this experience is being delivered for."
-      >
-        <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="clientName">Client organization name</Label>
-          <Input
-            id="clientName"
-            name="clientName"
-            disabled={readOnly}
-            defaultValue={field("clientName", experience.clientName ?? "")}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="clientContactName">Client contact name</Label>
-          <Input
-            id="clientContactName"
-            name="clientContactName"
-            disabled={readOnly}
-            defaultValue={field("clientContactName", experience.clientContactName ?? "")}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="clientContactEmail">Client contact email</Label>
-          <Input
-            id="clientContactEmail"
-            name="clientContactEmail"
-            type="email"
-            disabled={readOnly}
-            defaultValue={field("clientContactEmail", experience.clientContactEmail ?? "")}
-          />
-          <FieldError messages={fieldErrors?.clientContactEmail} />
-        </div>
-      </FormSection>
-
-      <FormSection
-        number={showClientSection ? 5 : 4}
         title="Facilitator"
         description="Who is delivering this experience."
       >
-        <div className="space-y-2">
-          <Label htmlFor="facilitatorName">Facilitator name</Label>
-          <Input
-            id="facilitatorName"
-            name="facilitatorName"
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="facilitatorId">Facilitator</Label>
+          <Select
+            name="facilitatorId"
+            defaultValue={field("facilitatorId", currentFacilitatorId ?? "") || undefined}
             disabled={readOnly}
-            defaultValue={field("facilitatorName", experience.facilitatorName ?? "")}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="facilitatorEmail">Facilitator email</Label>
-          <Input
-            id="facilitatorEmail"
-            name="facilitatorEmail"
-            type="email"
-            disabled={readOnly}
-            defaultValue={field("facilitatorEmail", experience.facilitatorEmail ?? "")}
-          />
-          <FieldError messages={fieldErrors?.facilitatorEmail} />
+            items={facilitators.map((facilitator) => ({
+              value: facilitator.id,
+              label: facilitator.primaryExpertise
+                ? `${facilitator.fullName} — ${facilitator.primaryExpertise}`
+                : facilitator.fullName,
+            }))}
+          >
+            <SelectTrigger id="facilitatorId" className="w-full">
+              <SelectValue placeholder="No facilitator assigned" />
+            </SelectTrigger>
+            <SelectContent>
+              {facilitators.map((facilitator) => (
+                <SelectItem key={facilitator.id} value={facilitator.id}>
+                  {facilitator.primaryExpertise
+                    ? `${facilitator.fullName} — ${facilitator.primaryExpertise}`
+                    : facilitator.fullName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-2 sm:col-span-2">
@@ -497,7 +485,7 @@ export function ExperienceEditForm({ experience, clients = [], engagements = [] 
       </FormSection>
 
       <FormSection
-        number={showClientSection ? 6 : 5}
+        number={showClientSection ? 5 : 4}
         title="Logistics and Materials"
         description="What needs to be prepared before the day."
         columns={false}

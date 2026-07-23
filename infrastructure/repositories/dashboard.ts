@@ -35,9 +35,10 @@ export type ParticipantSummary = {
 };
 
 export type AttentionReason =
-  | "capacity_remaining"
+  | "low_registration"
   | "no_participants"
   | "survey_not_sent"
+  | "survey_partially_sent"
   | "engagement_no_experiences";
 
 export type AttentionItem = {
@@ -85,7 +86,16 @@ type EngagementRow = {
   status: string;
 };
 
+type SurveyTokenRow = {
+  workshop_id: string;
+  participant_id: string;
+};
+
 const RECENT_PARTICIPANTS_LIMIT = 10;
+const RECENT_EXPERIENCES_LIMIT = 10;
+const LOW_REGISTRATION_DAYS_TO_START = 7;
+const LOW_REGISTRATION_CAPACITY_THRESHOLD = 0.5;
+const MS_PER_DAY = 86_400_000;
 
 export async function getDashboardData(): Promise<DashboardData> {
   const supabase = await createClient();
@@ -105,7 +115,7 @@ export async function getDashboardData(): Promise<DashboardData> {
           "id, workshop_slug, first_name, last_name, company, job_title, checked_in, created_at"
         )
         .order("created_at", { ascending: false }),
-      supabase.from("survey_tokens").select("workshop_id"),
+      supabase.from("survey_tokens").select("workshop_id, participant_id"),
       supabase.from("clients").select("id", { count: "exact", head: true }).is("deleted_at", null),
       supabase.from("engagements").select("id, title, status").is("deleted_at", null),
     ]);
@@ -132,10 +142,15 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   const experiences = (experiencesResult.data ?? []) as unknown as ExperienceRow[];
   const participants: ParticipantRow[] = participantsResult.data ?? [];
-  const experienceIdsWithSurveysSent = new Set(
-    (surveyTokensResult.data ?? []).map((token) => token.workshop_id)
-  );
+  const surveyTokens: SurveyTokenRow[] = surveyTokensResult.data ?? [];
   const engagements: EngagementRow[] = engagementsResult.data ?? [];
+
+  const surveyedParticipantIdsByExperienceId = new Map<string, Set<string>>();
+  for (const token of surveyTokens) {
+    const bucket = surveyedParticipantIdsByExperienceId.get(token.workshop_id) ?? new Set<string>();
+    bucket.add(token.participant_id);
+    surveyedParticipantIdsByExperienceId.set(token.workshop_id, bucket);
+  }
 
   const participantsBySlug = new Map<string, ParticipantRow[]>();
   for (const participant of participants) {
@@ -146,9 +161,7 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   const experienceTitleBySlug = new Map(experiences.map((e) => [e.slug, e.title]));
 
-  const engagementIdsWithExperiences = new Set<string>();
-
-  const recentExperiences: ExperienceSummary[] = experiences.map((experience) => {
+  const allExperiences: ExperienceSummary[] = experiences.map((experience) => {
     const experienceParticipants = participantsBySlug.get(experience.slug) ?? [];
 
     return {
@@ -167,6 +180,12 @@ export async function getDashboardData(): Promise<DashboardData> {
     };
   });
 
+  // The dashboard panel only ever displays the 10 most recent — but
+  // attention flags below scan every experience regardless of this limit,
+  // so an older active experience needing a decision is never silently
+  // dropped just because it scrolled off the "recent" list.
+  const recentExperiences = allExperiences.slice(0, RECENT_EXPERIENCES_LIMIT);
+
   const recentParticipants: ParticipantSummary[] = participants
     .slice(0, RECENT_PARTICIPANTS_LIMIT)
     .map((participant) => ({
@@ -180,15 +199,25 @@ export async function getDashboardData(): Promise<DashboardData> {
     }));
 
   const attentionItems: AttentionItem[] = [];
+  const now = Date.now();
 
-  for (const experience of recentExperiences) {
-    if (experience.status === "active" && experience.participantCount < experience.capacity) {
-      attentionItems.push({
-        id: experience.id,
-        title: experience.title,
-        reason: "capacity_remaining",
-        detail: `${experience.capacity - experience.participantCount} of ${experience.capacity} seats open`,
-      });
+  for (const experience of allExperiences) {
+    if (experience.status === "active") {
+      const daysToStart = Math.ceil((new Date(experience.startDate).getTime() - now) / MS_PER_DAY);
+      const capacityFilled = experience.capacity > 0 ? experience.participantCount / experience.capacity : 1;
+
+      if (
+        daysToStart >= 0 &&
+        daysToStart <= LOW_REGISTRATION_DAYS_TO_START &&
+        capacityFilled < LOW_REGISTRATION_CAPACITY_THRESHOLD
+      ) {
+        attentionItems.push({
+          id: experience.id,
+          title: experience.title,
+          reason: "low_registration",
+          detail: `Low registration — ${daysToStart} day${daysToStart === 1 ? "" : "s"} to start, only ${experience.participantCount} of ${experience.capacity} seats filled`,
+        });
+      }
     }
 
     if (experience.participantCount === 0) {
@@ -200,18 +229,33 @@ export async function getDashboardData(): Promise<DashboardData> {
       });
     }
 
-    if (experience.status === "completed" && !experienceIdsWithSurveysSent.has(experience.id)) {
-      attentionItems.push({
-        id: experience.id,
-        title: experience.title,
-        reason: "survey_not_sent",
-        detail: "Survey has not been sent to any participant yet",
-      });
+    if (experience.status === "completed" && experience.participantCount > 0) {
+      const surveyedIds = surveyedParticipantIdsByExperienceId.get(experience.id) ?? new Set<string>();
+      const experienceParticipants = participantsBySlug.get(experience.slug) ?? [];
+      const surveyedCount = experienceParticipants.filter((p) => surveyedIds.has(p.id)).length;
+      const notSurveyedCount = experience.participantCount - surveyedCount;
+
+      if (surveyedCount === 0) {
+        attentionItems.push({
+          id: experience.id,
+          title: experience.title,
+          reason: "survey_not_sent",
+          detail: "Survey has not been sent to any participant yet",
+        });
+      } else if (notSurveyedCount > 0) {
+        attentionItems.push({
+          id: experience.id,
+          title: experience.title,
+          reason: "survey_partially_sent",
+          detail: `${notSurveyedCount} of ${experience.participantCount} participants have not received a survey yet`,
+        });
+      }
     }
   }
 
   // Track which engagements already have at least one experience, so the
   // loop below can flag the ones that don't.
+  const engagementIdsWithExperiences = new Set<string>();
   for (const experience of experiences) {
     if (experience.engagement_id) {
       engagementIdsWithExperiences.add(experience.engagement_id);
