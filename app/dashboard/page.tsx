@@ -1,5 +1,7 @@
-import { CalendarCheck, ClipboardList, LayoutGrid, UserCheck } from "lucide-react";
+import Link from "next/link";
+import { CalendarCheck, ClipboardList, LayoutGrid, Plus, UserCheck } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { AttentionPanel } from "@/features/dashboard/components/attention-panel";
 import { RecentParticipantsPanel } from "@/features/dashboard/components/recent-participants-panel";
 import { RecentWorkshopsPanel } from "@/features/dashboard/components/recent-workshops-panel";
@@ -13,13 +15,20 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">
-          Welcome back{session.fullName ? `, ${session.fullName}` : ""}
-        </h1>
-        <p className="mt-2 text-muted-foreground">
-          {session.organizationName} · {session.workspaceName}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">
+            Welcome back{session.fullName ? `, ${session.fullName}` : ""}
+          </h1>
+          <p className="mt-2 text-muted-foreground">
+            {session.organizationName} · {session.workspaceName}
+          </p>
+        </div>
+
+        <Button size="lg" nativeButton={false} render={<Link href="/dashboard/workshops/new" />}>
+          <Plus className="size-4" />
+          New Workshop
+        </Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

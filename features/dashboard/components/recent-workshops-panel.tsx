@@ -28,14 +28,20 @@ function formatDate(value: string) {
 
 type Props = {
   workshops: WorkshopSummary[];
+  title?: string;
+  description?: string;
 };
 
-export function RecentWorkshopsPanel({ workshops }: Props) {
+export function RecentWorkshopsPanel({
+  workshops,
+  title = "Recent Workshops",
+  description = "Ordered by start date, most recent first.",
+}: Props) {
   return (
     <Card className="bg-surface-elevated">
       <CardHeader>
-        <CardTitle>Recent Workshops</CardTitle>
-        <CardDescription>Ordered by start date, most recent first.</CardDescription>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
         {workshops.length === 0 ? (
