@@ -1,6 +1,9 @@
 "use client";
 
 import { useActionState } from "react";
+
+import { BRANDING } from "@/config/branding";
+
 import { login, type LoginState } from "../actions";
 
 const initialState: LoginState = {
@@ -17,7 +20,7 @@ export function LoginForm() {
     <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
       <div className="mb-8 text-center">
         <h1 className="text-4xl font-bold text-slate-900">
-          WorkshopOS
+          {BRANDING.productName}
         </h1>
 
         <p className="mt-2 text-slate-500">

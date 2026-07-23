@@ -1,5 +1,5 @@
 export const BRANDING = {
-  productName: "WorkshopOS",
+  productName: "CapabilityOS",
   companyName: "Enable My Growth",
   tagline: "Perspective changes what becomes possible.",
   logoNav: "/emg/emg-3d-nav-dark-192x96.png",

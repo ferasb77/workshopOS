@@ -58,7 +58,7 @@ const CLIENTS: ClientSeed[] = [
   {
     name: "Ministry of Human Resources KSA",
     type: "government",
-    industry: "Government",
+    industry: "Public Administration",
     country: "Saudi Arabia",
   },
   { name: "Ooredoo Group", type: "corporate", industry: "Telecom", country: "Qatar" },
@@ -66,7 +66,7 @@ const CLIENTS: ClientSeed[] = [
   {
     name: "General Authority for Statistics KSA",
     type: "government",
-    industry: "Government",
+    industry: "Public Sector",
     country: "Saudi Arabia",
   },
   { name: "Etihad Airways", type: "corporate", industry: "Aviation", country: "UAE" },

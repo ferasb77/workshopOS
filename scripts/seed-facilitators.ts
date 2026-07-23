@@ -1,5 +1,5 @@
 /**
- * Facilitator directory demo seed for WorkshopOS.
+ * Facilitator directory demo seed for CapabilityOS.
  *
  * Run with: npx tsx scripts/seed-facilitators.ts
  *
@@ -323,8 +323,8 @@ const FACILITATORS: FacilitatorSeed[] = [
 ];
 
 async function main() {
-  console.log("WorkshopOS facilitator directory seed");
-  console.log("======================================\n");
+  console.log("CapabilityOS facilitator directory seed");
+  console.log("========================================\n");
 
   console.log("Inserting facilitators...");
 

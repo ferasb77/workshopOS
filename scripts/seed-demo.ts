@@ -1,5 +1,5 @@
 /**
- * Demo data seed for WorkshopOS.
+ * Demo data seed for CapabilityOS.
  *
  * Run with: npx tsx scripts/seed-demo.ts
  *
@@ -128,7 +128,7 @@ function makeParticipant(country: string) {
   const lastName = isArabic ? pick(ARABIC_LAST) : pick(WESTERN_LAST);
 
   emailCounter += 1;
-  const email = `${slugify(firstName)}.${slugify(lastName)}${emailCounter}@demo.workshopos.com`;
+  const email = `${slugify(firstName)}.${slugify(lastName)}${emailCounter}@demo.capabilityos.com`;
 
   const dialCode = COUNTRY_DIAL_CODE[country] ?? "971";
   const mobile = `+${dialCode}5${randomInt(1000000, 9999999)}`;
@@ -459,8 +459,8 @@ function checkedInAtFor(workshop: Pick<WorkshopPlan, "startDate">, checkedIn: bo
 }
 
 async function main() {
-  console.log("WorkshopOS demo seed");
-  console.log("=====================\n");
+  console.log("CapabilityOS demo seed");
+  console.log("======================\n");
 
   const { data: org, error: orgError } = await supabase
     .from("organizations")
