@@ -26,10 +26,10 @@ function SubmitButton() {
 type Props = {
   token: string;
   participantFirstName: string;
-  workshopTitle: string;
+  experienceTitle: string;
 };
 
-export function SurveyForm({ token, participantFirstName, workshopTitle }: Props) {
+export function SurveyForm({ token, participantFirstName, experienceTitle }: Props) {
   const [state, action] = useActionState(submitSurveyResponse, initialState);
 
   if (state.success) {
@@ -42,18 +42,18 @@ export function SurveyForm({ token, participantFirstName, workshopTitle }: Props
 
       <div>
         <h1 className="font-heading text-2xl font-semibold text-ivory sm:text-3xl">
-          Hi {participantFirstName}, thank you for attending {workshopTitle}
+          Hi {participantFirstName}, thank you for attending {experienceTitle}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Your feedback takes two minutes and helps us improve every future workshop.
+          Your feedback takes two minutes and helps us improve every future experience.
         </p>
       </div>
 
       <div className="space-y-6">
-        <StarRating name="contentRating" label="How would you rate the workshop content?" />
+        <StarRating name="contentRating" label="How would you rate the content?" />
         <StarRating name="facilitatorRating" label="How would you rate the facilitator's delivery?" />
         <StarRating name="logisticsRating" label="How would you rate the logistics and organisation?" />
-        <StarRating name="overallRating" label="Overall, how would you rate this workshop?" />
+        <StarRating name="overallRating" label="Overall, how would you rate this experience?" />
       </div>
 
       <div className="space-y-5">

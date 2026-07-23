@@ -1,16 +1,16 @@
 import Link from "next/link";
-import { CalendarCheck, ClipboardList, LayoutGrid, Plus, UserCheck } from "lucide-react";
+import { Briefcase, Building2, ClipboardList, Plus, UserCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { AttentionPanel } from "@/features/dashboard/components/attention-panel";
+import { RecentExperiencesPanel } from "@/features/dashboard/components/recent-experiences-panel";
 import { RecentParticipantsPanel } from "@/features/dashboard/components/recent-participants-panel";
-import { RecentWorkshopsPanel } from "@/features/dashboard/components/recent-workshops-panel";
 import { StatCard } from "@/features/dashboard/components/stat-card";
 import { getDashboardData } from "@/infrastructure/repositories/dashboard";
 import { getSessionContext } from "@/infrastructure/session/session-context";
 
 export default async function DashboardPage() {
-  const [session, { stats, recentWorkshops, recentParticipants, attentionItems }] =
+  const [session, { stats, recentExperiences, recentParticipants, attentionItems }] =
     await Promise.all([getSessionContext(), getDashboardData()]);
 
   return (
@@ -25,27 +25,27 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        <Button size="lg" nativeButton={false} render={<Link href="/dashboard/workshops/new" />}>
+        <Button size="lg" nativeButton={false} render={<Link href="/dashboard/experiences/new" />}>
           <Plus className="size-4" />
-          New Workshop
+          New Experience
         </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard label="Total Workshops" value={stats.totalWorkshops} icon={LayoutGrid} />
+        <StatCard label="Active Engagements" value={stats.activeEngagements} icon={Briefcase} />
         <StatCard
           label="Total Participants"
           value={stats.totalParticipants}
           icon={ClipboardList}
         />
         <StatCard label="Checked In" value={stats.checkedIn} icon={UserCheck} />
-        <StatCard label="Active Workshops" value={stats.activeWorkshops} icon={CalendarCheck} />
+        <StatCard label="Total Clients" value={stats.totalClients} icon={Building2} />
       </div>
 
       <AttentionPanel items={attentionItems} />
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <RecentWorkshopsPanel workshops={recentWorkshops} />
+        <RecentExperiencesPanel experiences={recentExperiences} />
         <RecentParticipantsPanel participants={recentParticipants} />
       </div>
     </div>

@@ -131,7 +131,7 @@ export function FacilitatorForm() {
       : [];
   };
 
-  // See features/workshops/components/workshop-form.tsx for why the form is
+  // See features/experiences/components/experience-form.tsx for why the form is
   // keyed on its own error state: React resets uncontrolled fields after
   // every action dispatch, so re-mounting with fresh defaultValues is how
   // submitted data survives a validation error.

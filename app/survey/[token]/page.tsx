@@ -7,7 +7,7 @@ type SurveyContextRow = {
   is_valid: boolean;
   is_completed: boolean;
   participant_first_name: string | null;
-  workshop_title: string | null;
+  experience_title: string | null;
 };
 
 type Props = {
@@ -35,7 +35,7 @@ export default async function SurveyPage({ params }: Props) {
               <SurveyForm
                 token={token}
                 participantFirstName={context.participant_first_name ?? "there"}
-                workshopTitle={context.workshop_title ?? "the workshop"}
+                experienceTitle={context.experience_title ?? "the experience"}
               />
             )}
           </div>

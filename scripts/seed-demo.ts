@@ -495,7 +495,7 @@ async function main() {
   console.log("Inserting workshops...");
 
   const { data: existingWorkshopRows, error: existingWorkshopsError } = await supabase
-    .from("workshops")
+    .from("experiences")
     .select("id, slug")
     .like("slug", "demo-%");
 
@@ -522,7 +522,7 @@ async function main() {
 
     const id = randomUUID();
 
-    const { error } = await supabase.from("workshops").insert({
+    const { error } = await supabase.from("experiences").insert({
       id,
       title: plan.title,
       slug: plan.slug,

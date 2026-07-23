@@ -1,4 +1,4 @@
-import { AlertTriangle, CircleCheck, Mail, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Briefcase, CircleCheck, Mail, type LucideIcon } from "lucide-react";
 
 import {
   Card,
@@ -13,6 +13,7 @@ const REASON_ICON: Record<AttentionItem["reason"], LucideIcon> = {
   capacity_remaining: AlertTriangle,
   no_participants: AlertTriangle,
   survey_not_sent: Mail,
+  engagement_no_experiences: Briefcase,
 };
 
 type Props = {
@@ -24,7 +25,7 @@ export function AttentionPanel({ items }: Props) {
     <Card className="border-gold/30 bg-surface-elevated">
       <CardHeader>
         <CardTitle>Attention Required</CardTitle>
-        <CardDescription>Workshops that need a decision from you.</CardDescription>
+        <CardDescription>Experiences and engagements that need a decision from you.</CardDescription>
       </CardHeader>
       <CardContent>
         {items.length === 0 ? (
@@ -39,7 +40,7 @@ export function AttentionPanel({ items }: Props) {
 
               return (
                 <li
-                  key={`${item.workshopId}-${item.reason}-${index}`}
+                  key={`${item.id}-${item.reason}-${index}`}
                   className="flex items-start gap-3 rounded-lg border border-gold/20 bg-night/40 p-3"
                 >
                   <Icon className="mt-0.5 size-4 shrink-0 text-gold" />

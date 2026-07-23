@@ -58,7 +58,7 @@ export async function getAllFacilitators(): Promise<FacilitatorSummary[]> {
       .eq("is_active", true)
       .order("first_name", { ascending: true }),
     supabase
-      .from("workshops")
+      .from("experiences")
       .select("id, facilitator_email")
       .not("facilitator_email", "is", null)
       .is("deleted_at", null),
@@ -254,7 +254,7 @@ export async function getFacilitatorDeliveryHistory(
   const supabase = await createClient();
 
   const { data: workshopRows, error: workshopsError } = await supabase
-    .from("workshops")
+    .from("experiences")
     .select("id, slug, title, start_date, venue, facilitator_email")
     .not("facilitator_email", "is", null)
     .is("deleted_at", null);

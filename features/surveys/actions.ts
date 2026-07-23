@@ -19,20 +19,20 @@ export type SubmitSurveyResult =
   | { success: true }
   | { success: false; error: string; fieldErrors?: Record<string, string[]> };
 
-type WorkshopContext = { id: string; title: string; slug: string };
+type ExperienceContext = { id: string; title: string; slug: string };
 type ParticipantContext = { id: string; first_name: string; email: string };
 
 async function ensureTokenAndSend(
   supabase: SupabaseServerClient,
   participant: ParticipantContext,
-  workshop: WorkshopContext,
+  experience: ExperienceContext,
   appUrl: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const { data: existing, error: findError } = await supabase
     .from("survey_tokens")
     .select("id, token, completed_at")
     .eq("participant_id", participant.id)
-    .eq("workshop_id", workshop.id)
+    .eq("workshop_id", experience.id)
     .maybeSingle();
 
   if (findError) {
@@ -59,7 +59,7 @@ async function ensureTokenAndSend(
       .from("survey_tokens")
       .insert({
         participant_id: participant.id,
-        workshop_id: workshop.id,
+        workshop_id: experience.id,
         sent_at: new Date().toISOString(),
       })
       .select("token")
@@ -79,7 +79,7 @@ async function ensureTokenAndSend(
   const surveyUrl = `${appUrl}/survey/${token}`;
   const { subject, html } = renderSurveyEmail({
     participantFirstName: participant.first_name,
-    workshopTitle: workshop.title,
+    experienceTitle: experience.title,
     surveyUrl,
   });
 
@@ -117,12 +117,12 @@ export async function sendSurveyToParticipant(
   _prevState: SendSurveyResult | null,
   formData: FormData
 ): Promise<SendSurveyResult> {
-  const workshopId = formData.get("workshopId")?.toString();
-  const workshopSlug = formData.get("workshopSlug")?.toString();
-  const workshopTitle = formData.get("workshopTitle")?.toString();
+  const experienceId = formData.get("experienceId")?.toString();
+  const experienceSlug = formData.get("experienceSlug")?.toString();
+  const experienceTitle = formData.get("experienceTitle")?.toString();
   const participantId = formData.get("participantId")?.toString();
 
-  if (!workshopId || !workshopSlug || !workshopTitle || !participantId) {
+  if (!experienceId || !experienceSlug || !experienceTitle || !participantId) {
     return { success: false, error: "Missing required fields." };
   }
 
@@ -146,11 +146,11 @@ export async function sendSurveyToParticipant(
   const result = await ensureTokenAndSend(
     supabase,
     participant,
-    { id: workshopId, title: workshopTitle, slug: workshopSlug },
+    { id: experienceId, title: experienceTitle, slug: experienceSlug },
     appUrl.url
   );
 
-  revalidatePath(`/dashboard/workshops/${workshopSlug}`);
+  revalidatePath(`/dashboard/experiences/${experienceSlug}`);
 
   if (!result.ok) {
     return { success: false, error: result.error };
@@ -163,11 +163,11 @@ export async function sendSurveyToAllParticipants(
   _prevState: SendSurveyResult | null,
   formData: FormData
 ): Promise<SendSurveyResult> {
-  const workshopId = formData.get("workshopId")?.toString();
-  const workshopSlug = formData.get("workshopSlug")?.toString();
-  const workshopTitle = formData.get("workshopTitle")?.toString();
+  const experienceId = formData.get("experienceId")?.toString();
+  const experienceSlug = formData.get("experienceSlug")?.toString();
+  const experienceTitle = formData.get("experienceTitle")?.toString();
 
-  if (!workshopId || !workshopSlug || !workshopTitle) {
+  if (!experienceId || !experienceSlug || !experienceTitle) {
     return { success: false, error: "Missing required fields." };
   }
 
@@ -183,11 +183,11 @@ export async function sendSurveyToAllParticipants(
       supabase
         .from("participants")
         .select("id, first_name, email")
-        .eq("workshop_slug", workshopSlug),
+        .eq("workshop_slug", experienceSlug),
       supabase
         .from("survey_tokens")
         .select("participant_id")
-        .eq("workshop_id", workshopId),
+        .eq("workshop_id", experienceId),
     ]);
 
   if (participantsError) {
@@ -209,7 +209,7 @@ export async function sendSurveyToAllParticipants(
     const result = await ensureTokenAndSend(
       supabase,
       participant,
-      { id: workshopId, title: workshopTitle, slug: workshopSlug },
+      { id: experienceId, title: experienceTitle, slug: experienceSlug },
       appUrl.url
     );
 
@@ -221,7 +221,7 @@ export async function sendSurveyToAllParticipants(
     }
   }
 
-  revalidatePath(`/dashboard/workshops/${workshopSlug}`);
+  revalidatePath(`/dashboard/experiences/${experienceSlug}`);
 
   return {
     success: true,

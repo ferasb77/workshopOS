@@ -393,7 +393,7 @@ async function main() {
 
   for (const assignment of assignments) {
     const { data: updated, error } = await supabase
-      .from("workshops")
+      .from("experiences")
       .update({
         facilitator_name: `${assignment.firstName} ${assignment.lastName}`,
         facilitator_email: assignment.email,

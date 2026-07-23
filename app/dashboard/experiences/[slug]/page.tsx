@@ -1,0 +1,168 @@
+import Link from "next/link";
+import { ArrowLeft, ChevronRight } from "lucide-react";
+import { notFound } from "next/navigation";
+
+import { Button } from "@/components/ui/button";
+import { ExperienceStatusBadge } from "@/features/dashboard/components/experience-status-badge";
+import { SurveyResultsPanel } from "@/features/surveys/components/survey-results-panel";
+import { LogisticsTab } from "@/features/experiences/components/logistics-tab";
+import { ParticipantsTab } from "@/features/experiences/components/participants-tab";
+import { RegistrationLinkPanel } from "@/features/experiences/components/registration-link-panel";
+import { ExperienceCreatedBanner } from "@/features/experiences/components/experience-created-banner";
+import { EXPERIENCE_TABS, ExperienceTabs, type ExperienceTabKey } from "@/features/experiences/components/experience-tabs";
+import {
+  getExperienceBySlug,
+  getExperienceLogisticsTasks,
+  getExperienceParticipants,
+  getExperienceSurveyResults,
+} from "@/features/experiences/data";
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function resolveTab(tab: string | undefined): ExperienceTabKey {
+  const match = EXPERIENCE_TABS.find((t) => t.key === tab);
+  return match?.key ?? "participants";
+}
+
+type Props = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ tab?: string; created?: string }>;
+};
+
+export default async function ExperienceDetailPage({ params, searchParams }: Props) {
+  const { slug } = await params;
+  const { tab, created } = await searchParams;
+  const activeTab = resolveTab(tab);
+
+  const experience = await getExperienceBySlug(slug);
+
+  if (!experience) {
+    notFound();
+  }
+
+  // Participants are needed on every tab (header count, survey tab's
+  // response-rate math) — the other two are fetched only for the tab
+  // actually being viewed, so each tab is an independent view: switching
+  // to Participants still works even if, say, the logistics table isn't
+  // there yet.
+  const participants = await getExperienceParticipants(experience.id);
+
+  const surveyResults =
+    activeTab === "survey" ? await getExperienceSurveyResults(experience.id) : null;
+  const logisticsGroups =
+    activeTab === "logistics" ? await getExperienceLogisticsTasks(experience.id) : null;
+
+  const isLocked = experience.status === "completed" || experience.status === "cancelled";
+  const unsentSurveyCount = participants.filter((p) => p.surveyStatus === "not_sent").length;
+
+  // Registration only makes sense while an experience is still open for
+  // sign-ups — draft (not yet public, but shareable ahead of launch) or
+  // active. Completed/cancelled experiences hide the link entirely.
+  const registrationOpen = experience.status === "draft" || experience.status === "active";
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+  const registrationUrl = `${appUrl}/r/${experience.slug}`;
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-6">
+      <Link
+        href="/dashboard/experiences"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-gold"
+      >
+        <ArrowLeft className="size-4" />
+        Back to Experiences
+      </Link>
+
+      {(experience.clientName || experience.engagementTitle) && (
+        <nav className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+          <Link href="/dashboard/clients" className="hover:text-gold">
+            Clients
+          </Link>
+          {experience.clientName && experience.clientId && (
+            <>
+              <ChevronRight className="size-3.5 shrink-0" />
+              <Link href={`/dashboard/clients/${experience.clientId}`} className="hover:text-gold">
+                {experience.clientName}
+              </Link>
+            </>
+          )}
+          {experience.engagementTitle && experience.clientId && experience.engagementId && (
+            <>
+              <ChevronRight className="size-3.5 shrink-0" />
+              <Link
+                href={`/dashboard/clients/${experience.clientId}/engagements/${experience.engagementId}`}
+                className="hover:text-gold"
+              >
+                {experience.engagementTitle}
+              </Link>
+            </>
+          )}
+          <ChevronRight className="size-3.5 shrink-0" />
+          <span className="text-ivory">{experience.title}</span>
+        </nav>
+      )}
+
+      {created === "true" && <ExperienceCreatedBanner registrationUrl={registrationUrl} />}
+
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-3xl font-bold">{experience.title}</h1>
+            <ExperienceStatusBadge status={experience.status} />
+          </div>
+          <p className="mt-2 text-muted-foreground">
+            {formatDate(experience.startDate)} – {formatDate(experience.endDate)}
+            {experience.venue ? ` · ${experience.venue}` : ""}
+            {` · ${participants.length} / ${experience.capacity} registered`}
+          </p>
+          {(experience.clientName || experience.engagementTitle) && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              {[experience.clientName, experience.engagementTitle].filter(Boolean).join(" · ")}
+            </p>
+          )}
+        </div>
+
+        <Button
+          variant="secondary"
+          nativeButton={false}
+          render={<Link href={`/dashboard/experiences/${experience.slug}/edit`} />}
+        >
+          Edit
+        </Button>
+      </div>
+
+      {registrationOpen && <RegistrationLinkPanel url={registrationUrl} />}
+
+      <ExperienceTabs slug={experience.slug} activeTab={activeTab} />
+
+      {activeTab === "participants" && (
+        <ParticipantsTab
+          experience={experience}
+          participants={participants}
+          registrationUrl={registrationOpen ? registrationUrl : null}
+        />
+      )}
+
+      {activeTab === "survey" && surveyResults && (
+        <SurveyResultsPanel
+          experienceId={experience.id}
+          experienceSlug={experience.slug}
+          experienceTitle={experience.title}
+          participantsCount={participants.length}
+          unsentCount={unsentSurveyCount}
+          averages={surveyResults.averages}
+          responses={surveyResults.responses}
+        />
+      )}
+
+      {activeTab === "logistics" && logisticsGroups && (
+        <LogisticsTab experienceSlug={experience.slug} isLocked={isLocked} groups={logisticsGroups} />
+      )}
+    </div>
+  );
+}

@@ -1,23 +1,25 @@
 import { createClient } from "@/infrastructure/supabase/server";
 
-export type WorkshopStatus = "draft" | "active" | "completed" | "cancelled";
+export type ExperienceStatus = "draft" | "active" | "completed" | "cancelled";
 
 export type DashboardStats = {
-  totalWorkshops: number;
+  activeEngagements: number;
   totalParticipants: number;
   checkedIn: number;
-  activeWorkshops: number;
+  totalClients: number;
 };
 
-export type WorkshopSummary = {
+export type ExperienceSummary = {
   id: string;
   slug: string;
   title: string;
   venue: string | null;
   startDate: string;
   endDate: string;
-  status: WorkshopStatus;
+  status: ExperienceStatus;
   capacity: number;
+  clientName: string | null;
+  engagementTitle: string | null;
   participantCount: number;
   checkedInCount: number;
 };
@@ -27,15 +29,19 @@ export type ParticipantSummary = {
   fullName: string;
   company: string | null;
   jobTitle: string | null;
-  workshopTitle: string | null;
+  experienceTitle: string | null;
   checkedIn: boolean;
   createdAt: string;
 };
 
-export type AttentionReason = "capacity_remaining" | "no_participants" | "survey_not_sent";
+export type AttentionReason =
+  | "capacity_remaining"
+  | "no_participants"
+  | "survey_not_sent"
+  | "engagement_no_experiences";
 
 export type AttentionItem = {
-  workshopId: string;
+  id: string;
   title: string;
   reason: AttentionReason;
   detail: string;
@@ -43,12 +49,12 @@ export type AttentionItem = {
 
 export type DashboardData = {
   stats: DashboardStats;
-  recentWorkshops: WorkshopSummary[];
+  recentExperiences: ExperienceSummary[];
   recentParticipants: ParticipantSummary[];
   attentionItems: AttentionItem[];
 };
 
-type WorkshopRow = {
+type ExperienceRow = {
   id: string;
   slug: string;
   title: string;
@@ -56,7 +62,10 @@ type WorkshopRow = {
   start_date: string;
   end_date: string;
   capacity: number;
-  status: WorkshopStatus;
+  status: ExperienceStatus;
+  engagement_id: string | null;
+  clients: { name: string } | null;
+  engagements: { title: string } | null;
 };
 
 type ParticipantRow = {
@@ -70,28 +79,39 @@ type ParticipantRow = {
   created_at: string;
 };
 
+type EngagementRow = {
+  id: string;
+  title: string;
+  status: string;
+};
+
 const RECENT_PARTICIPANTS_LIMIT = 10;
 
 export async function getDashboardData(): Promise<DashboardData> {
   const supabase = await createClient();
 
-  const [workshopsResult, participantsResult, surveyTokensResult] = await Promise.all([
-    supabase
-      .from("workshops")
-      .select("id, title, venue, start_date, end_date, capacity, status, slug")
-      .is("deleted_at", null)
-      .order("start_date", { ascending: false }),
-    supabase
-      .from("participants")
-      .select(
-        "id, workshop_slug, first_name, last_name, company, job_title, checked_in, created_at"
-      )
-      .order("created_at", { ascending: false }),
-    supabase.from("survey_tokens").select("workshop_id"),
-  ]);
+  const [experiencesResult, participantsResult, surveyTokensResult, clientsResult, engagementsResult] =
+    await Promise.all([
+      supabase
+        .from("experiences")
+        .select(
+          "id, slug, title, venue, start_date, end_date, capacity, status, engagement_id, clients(name), engagements(title)"
+        )
+        .is("deleted_at", null)
+        .order("start_date", { ascending: false }),
+      supabase
+        .from("participants")
+        .select(
+          "id, workshop_slug, first_name, last_name, company, job_title, checked_in, created_at"
+        )
+        .order("created_at", { ascending: false }),
+      supabase.from("survey_tokens").select("workshop_id"),
+      supabase.from("clients").select("id", { count: "exact", head: true }).is("deleted_at", null),
+      supabase.from("engagements").select("id, title, status").is("deleted_at", null),
+    ]);
 
-  if (workshopsResult.error) {
-    throw new Error(workshopsResult.error.message);
+  if (experiencesResult.error) {
+    throw new Error(experiencesResult.error.message);
   }
 
   if (participantsResult.error) {
@@ -102,11 +122,20 @@ export async function getDashboardData(): Promise<DashboardData> {
     throw new Error(surveyTokensResult.error.message);
   }
 
-  const workshops: WorkshopRow[] = workshopsResult.data ?? [];
+  if (clientsResult.error) {
+    throw new Error(clientsResult.error.message);
+  }
+
+  if (engagementsResult.error) {
+    throw new Error(engagementsResult.error.message);
+  }
+
+  const experiences = (experiencesResult.data ?? []) as unknown as ExperienceRow[];
   const participants: ParticipantRow[] = participantsResult.data ?? [];
-  const workshopIdsWithSurveysSent = new Set(
+  const experienceIdsWithSurveysSent = new Set(
     (surveyTokensResult.data ?? []).map((token) => token.workshop_id)
   );
+  const engagements: EngagementRow[] = engagementsResult.data ?? [];
 
   const participantsBySlug = new Map<string, ParticipantRow[]>();
   for (const participant of participants) {
@@ -115,22 +144,26 @@ export async function getDashboardData(): Promise<DashboardData> {
     participantsBySlug.set(participant.workshop_slug, bucket);
   }
 
-  const workshopTitleBySlug = new Map(workshops.map((w) => [w.slug, w.title]));
+  const experienceTitleBySlug = new Map(experiences.map((e) => [e.slug, e.title]));
 
-  const recentWorkshops: WorkshopSummary[] = workshops.map((workshop) => {
-    const workshopParticipants = participantsBySlug.get(workshop.slug) ?? [];
+  const engagementIdsWithExperiences = new Set<string>();
+
+  const recentExperiences: ExperienceSummary[] = experiences.map((experience) => {
+    const experienceParticipants = participantsBySlug.get(experience.slug) ?? [];
 
     return {
-      id: workshop.id,
-      slug: workshop.slug,
-      title: workshop.title,
-      venue: workshop.venue,
-      startDate: workshop.start_date,
-      endDate: workshop.end_date,
-      status: workshop.status,
-      capacity: workshop.capacity,
-      participantCount: workshopParticipants.length,
-      checkedInCount: workshopParticipants.filter((p) => p.checked_in).length,
+      id: experience.id,
+      slug: experience.slug,
+      title: experience.title,
+      venue: experience.venue,
+      startDate: experience.start_date,
+      endDate: experience.end_date,
+      status: experience.status,
+      capacity: experience.capacity,
+      clientName: experience.clients?.name ?? null,
+      engagementTitle: experience.engagements?.title ?? null,
+      participantCount: experienceParticipants.length,
+      checkedInCount: experienceParticipants.filter((p) => p.checked_in).length,
     };
   });
 
@@ -141,48 +174,67 @@ export async function getDashboardData(): Promise<DashboardData> {
       fullName: `${participant.first_name} ${participant.last_name}`.trim(),
       company: participant.company,
       jobTitle: participant.job_title,
-      workshopTitle: workshopTitleBySlug.get(participant.workshop_slug) ?? null,
+      experienceTitle: experienceTitleBySlug.get(participant.workshop_slug) ?? null,
       checkedIn: participant.checked_in,
       createdAt: participant.created_at,
     }));
 
   const attentionItems: AttentionItem[] = [];
 
-  for (const workshop of recentWorkshops) {
-    if (workshop.status === "active" && workshop.participantCount < workshop.capacity) {
+  for (const experience of recentExperiences) {
+    if (experience.status === "active" && experience.participantCount < experience.capacity) {
       attentionItems.push({
-        workshopId: workshop.id,
-        title: workshop.title,
+        id: experience.id,
+        title: experience.title,
         reason: "capacity_remaining",
-        detail: `${workshop.capacity - workshop.participantCount} of ${workshop.capacity} seats open`,
+        detail: `${experience.capacity - experience.participantCount} of ${experience.capacity} seats open`,
       });
     }
 
-    if (workshop.participantCount === 0) {
+    if (experience.participantCount === 0) {
       attentionItems.push({
-        workshopId: workshop.id,
-        title: workshop.title,
+        id: experience.id,
+        title: experience.title,
         reason: "no_participants",
         detail: "No participants registered yet",
       });
     }
 
-    if (workshop.status === "completed" && !workshopIdsWithSurveysSent.has(workshop.id)) {
+    if (experience.status === "completed" && !experienceIdsWithSurveysSent.has(experience.id)) {
       attentionItems.push({
-        workshopId: workshop.id,
-        title: workshop.title,
+        id: experience.id,
+        title: experience.title,
         reason: "survey_not_sent",
         detail: "Survey has not been sent to any participant yet",
       });
     }
   }
 
+  // Track which engagements already have at least one experience, so the
+  // loop below can flag the ones that don't.
+  for (const experience of experiences) {
+    if (experience.engagement_id) {
+      engagementIdsWithExperiences.add(experience.engagement_id);
+    }
+  }
+
+  for (const engagement of engagements) {
+    if (engagement.status === "active" && !engagementIdsWithExperiences.has(engagement.id)) {
+      attentionItems.push({
+        id: engagement.id,
+        title: engagement.title,
+        reason: "engagement_no_experiences",
+        detail: "No experiences linked to this engagement yet",
+      });
+    }
+  }
+
   const stats: DashboardStats = {
-    totalWorkshops: workshops.length,
+    activeEngagements: engagements.filter((e) => e.status === "active").length,
     totalParticipants: participants.length,
     checkedIn: participants.filter((p) => p.checked_in).length,
-    activeWorkshops: workshops.filter((w) => w.status === "active").length,
+    totalClients: clientsResult.count ?? 0,
   };
 
-  return { stats, recentWorkshops, recentParticipants, attentionItems };
+  return { stats, recentExperiences, recentParticipants, attentionItems };
 }

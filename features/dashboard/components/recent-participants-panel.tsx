@@ -50,7 +50,7 @@ export function RecentParticipantsPanel({ participants }: Props) {
                     <TableHead>Name</TableHead>
                     <TableHead>Company</TableHead>
                     <TableHead>Role</TableHead>
-                    <TableHead>Workshop</TableHead>
+                    <TableHead>Experience</TableHead>
                     <TableHead>Checked In</TableHead>
                     <TableHead className="text-right">Registered</TableHead>
                   </TableRow>
@@ -66,7 +66,7 @@ export function RecentParticipantsPanel({ participants }: Props) {
                         {participant.jobTitle ?? "—"}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {participant.workshopTitle ?? "—"}
+                        {participant.experienceTitle ?? "—"}
                       </TableCell>
                       <TableCell>
                         {participant.checkedIn ? (
@@ -101,8 +101,8 @@ export function RecentParticipantsPanel({ participants }: Props) {
                   {participant.company ? (
                     <p className="mt-1 text-sm text-muted-foreground">{participant.company}</p>
                   ) : null}
-                  {participant.workshopTitle ? (
-                    <p className="text-sm text-muted-foreground">{participant.workshopTitle}</p>
+                  {participant.experienceTitle ? (
+                    <p className="text-sm text-muted-foreground">{participant.experienceTitle}</p>
                   ) : null}
                 </li>
               ))}

@@ -20,21 +20,21 @@ function TriggerButton({ disabled }: { disabled: boolean }) {
 }
 
 type Props = {
-  workshopId: string;
-  workshopSlug: string;
-  workshopTitle: string;
+  experienceId: string;
+  experienceSlug: string;
+  experienceTitle: string;
   unsentCount: number;
 };
 
-export function SendAllSurveysButton({ workshopId, workshopSlug, workshopTitle, unsentCount }: Props) {
+export function SendAllSurveysButton({ experienceId, experienceSlug, experienceTitle, unsentCount }: Props) {
   const [state, action] = useActionState(sendSurveyToAllParticipants, initialState);
 
   return (
     <div className="flex flex-col items-end gap-1">
       <form action={action}>
-        <input type="hidden" name="workshopId" value={workshopId} />
-        <input type="hidden" name="workshopSlug" value={workshopSlug} />
-        <input type="hidden" name="workshopTitle" value={workshopTitle} />
+        <input type="hidden" name="experienceId" value={experienceId} />
+        <input type="hidden" name="experienceSlug" value={experienceSlug} />
+        <input type="hidden" name="experienceTitle" value={experienceTitle} />
         <TriggerButton disabled={unsentCount === 0} />
       </form>
 

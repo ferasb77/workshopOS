@@ -82,7 +82,7 @@ export function DeliveryHistoryPanel({ history }: Props) {
                     <TableRow key={workshop.id}>
                       <TableCell className="font-medium">
                         <Link
-                          href={`/dashboard/workshops/${workshop.slug}`}
+                          href={`/dashboard/experiences/${workshop.slug}`}
                           className="hover:text-gold"
                         >
                           {workshop.title}
@@ -110,7 +110,7 @@ export function DeliveryHistoryPanel({ history }: Props) {
               {history.workshops.map((workshop) => (
                 <li key={workshop.id}>
                   <Link
-                    href={`/dashboard/workshops/${workshop.slug}`}
+                    href={`/dashboard/experiences/${workshop.slug}`}
                     className="block rounded-lg border border-border-subtle bg-night/40 p-3"
                   >
                     <div className="flex items-start justify-between gap-3">

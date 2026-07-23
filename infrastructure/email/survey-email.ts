@@ -9,18 +9,18 @@ function escapeHtml(value: string): string {
 
 type SurveyEmailInput = {
   participantFirstName: string;
-  workshopTitle: string;
+  experienceTitle: string;
   surveyUrl: string;
 };
 
 export function renderSurveyEmail({
   participantFirstName,
-  workshopTitle,
+  experienceTitle,
   surveyUrl,
 }: SurveyEmailInput): { subject: string; html: string } {
-  const subject = `Your feedback on ${workshopTitle}`;
+  const subject = `Your feedback on ${experienceTitle}`;
   const safeName = escapeHtml(participantFirstName);
-  const safeTitle = escapeHtml(workshopTitle);
+  const safeTitle = escapeHtml(experienceTitle);
 
   const html = `<!doctype html>
 <html>
@@ -43,7 +43,7 @@ export function renderSurveyEmail({
                   Thank you for attending <strong style="color:#EDEAE3;">${safeTitle}</strong>.
                 </p>
                 <p style="margin:0 0 32px;color:rgba(237,234,227,0.75);font-size:15px;line-height:1.6;">
-                  Your feedback helps us improve every future workshop — it only takes a couple of minutes.
+                  Your feedback helps us improve every future experience — it only takes a couple of minutes.
                 </p>
               </td>
             </tr>

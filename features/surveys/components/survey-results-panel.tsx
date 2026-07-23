@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { SurveyDimensionAverages, SurveyResponseSummary } from "@/features/workshops/data";
+import type { SurveyDimensionAverages, SurveyResponseSummary } from "@/features/experiences/data";
 
 import { SendAllSurveysButton } from "./send-all-surveys-button";
 
@@ -40,9 +40,9 @@ function AverageBar({ label, value }: { label: string; value: number | null }) {
 }
 
 type Props = {
-  workshopId: string;
-  workshopSlug: string;
-  workshopTitle: string;
+  experienceId: string;
+  experienceSlug: string;
+  experienceTitle: string;
   participantsCount: number;
   unsentCount: number;
   averages: SurveyDimensionAverages;
@@ -50,9 +50,9 @@ type Props = {
 };
 
 export function SurveyResultsPanel({
-  workshopId,
-  workshopSlug,
-  workshopTitle,
+  experienceId,
+  experienceSlug,
+  experienceTitle,
   participantsCount,
   unsentCount,
   averages,
@@ -64,12 +64,12 @@ export function SurveyResultsPanel({
         <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
           <p className="text-ivory">No survey responses yet.</p>
           <p className="max-w-md text-sm text-muted-foreground">
-            Send the survey to participants to start collecting feedback on this workshop.
+            Send the survey to participants to start collecting feedback on this experience.
           </p>
           <SendAllSurveysButton
-            workshopId={workshopId}
-            workshopSlug={workshopSlug}
-            workshopTitle={workshopTitle}
+            experienceId={experienceId}
+            experienceSlug={experienceSlug}
+            experienceTitle={experienceTitle}
             unsentCount={unsentCount}
           />
         </CardContent>
@@ -85,7 +85,7 @@ export function SurveyResultsPanel({
         <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive-foreground">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
           <p>
-            This workshop scored below the quality threshold. Consider following up with the
+            This experience scored below the quality threshold. Consider following up with the
             client.
           </p>
         </div>

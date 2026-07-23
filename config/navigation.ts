@@ -1,5 +1,6 @@
 export type NavIconName =
   | "LayoutDashboard"
+  | "Building2"
   | "GraduationCap"
   | "Users"
   | "SquareUserRound"
@@ -13,7 +14,8 @@ export type NavItem = {
 
 export const NAV_ITEMS: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: "LayoutDashboard" },
-  { title: "Experiences", href: "/dashboard/workshops", icon: "GraduationCap" },
+  { title: "Clients", href: "/dashboard/clients", icon: "Building2" },
+  { title: "Experiences", href: "/dashboard/experiences", icon: "GraduationCap" },
   { title: "Participants", href: "/dashboard/participants", icon: "Users" },
   { title: "Facilitators", href: "/dashboard/facilitators", icon: "SquareUserRound" },
   { title: "Settings", href: "/dashboard/settings", icon: "Settings" },

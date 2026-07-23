@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
-import type { SurveyStatus } from "@/features/workshops/data";
+import type { SurveyStatus } from "@/features/experiences/data";
 
 import { sendSurveyToParticipant, type SendSurveyResult } from "../actions";
 
@@ -22,17 +22,17 @@ function TriggerButton({ label }: { label: string }) {
 
 type Props = {
   participantId: string;
-  workshopId: string;
-  workshopSlug: string;
-  workshopTitle: string;
+  experienceId: string;
+  experienceSlug: string;
+  experienceTitle: string;
   status: SurveyStatus;
 };
 
 export function SendSurveyButton({
   participantId,
-  workshopId,
-  workshopSlug,
-  workshopTitle,
+  experienceId,
+  experienceSlug,
+  experienceTitle,
   status,
 }: Props) {
   const [state, action] = useActionState(sendSurveyToParticipant, initialState);
@@ -46,9 +46,9 @@ export function SendSurveyButton({
   return (
     <form action={action} className="flex flex-col items-end gap-1">
       <input type="hidden" name="participantId" value={participantId} />
-      <input type="hidden" name="workshopId" value={workshopId} />
-      <input type="hidden" name="workshopSlug" value={workshopSlug} />
-      <input type="hidden" name="workshopTitle" value={workshopTitle} />
+      <input type="hidden" name="experienceId" value={experienceId} />
+      <input type="hidden" name="experienceSlug" value={experienceSlug} />
+      <input type="hidden" name="experienceTitle" value={experienceTitle} />
       <TriggerButton label={label} />
       {!state.success && <p className="max-w-40 text-right text-xs text-destructive">{state.error}</p>}
     </form>
