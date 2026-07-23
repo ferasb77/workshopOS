@@ -379,6 +379,7 @@ export type SurveyResponseSummary = {
   improvements: string | null;
   additionalComments: string | null;
   submittedAt: string;
+  flagged: boolean;
 };
 
 export type ExperienceSurveyResults = {
@@ -397,6 +398,7 @@ type SurveyResponseRow = {
   improvements: string | null;
   additional_comments: string | null;
   submitted_at: string;
+  flagged: boolean;
 };
 
 function average(values: number[]): number | null {
@@ -415,7 +417,7 @@ export async function getExperienceSurveyResults(experienceId: string): Promise<
       supabase
         .from("survey_responses")
         .select(
-          "id, participant_id, content_rating, facilitator_rating, logistics_rating, overall_rating, highlights, improvements, additional_comments, submitted_at"
+          "id, participant_id, content_rating, facilitator_rating, logistics_rating, overall_rating, highlights, improvements, additional_comments, submitted_at, flagged"
         )
         .eq("workshop_id", experienceId)
         .order("submitted_at", { ascending: false }),
@@ -446,6 +448,7 @@ export async function getExperienceSurveyResults(experienceId: string): Promise<
     improvements: row.improvements,
     additionalComments: row.additional_comments,
     submittedAt: row.submitted_at,
+    flagged: row.flagged,
   }));
 
   const averages: SurveyDimensionAverages = {

@@ -5,6 +5,8 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ExperienceStatusBadge } from "@/features/dashboard/components/experience-status-badge";
 import { SurveyResultsPanel } from "@/features/surveys/components/survey-results-panel";
+import { SurveyTab } from "@/features/surveys/components/survey-tab";
+import { getSurveyManagementData } from "@/features/surveys/data";
 import { LogisticsTab } from "@/features/experiences/components/logistics-tab";
 import { ParticipantsTab } from "@/features/experiences/components/participants-tab";
 import { RegistrationLinkPanel } from "@/features/experiences/components/registration-link-panel";
@@ -57,6 +59,8 @@ export default async function ExperienceDetailPage({ params, searchParams }: Pro
     activeTab === "survey" ? await getExperienceSurveyResults(experience.id) : null;
   const logisticsGroups =
     activeTab === "logistics" ? await getExperienceLogisticsTasks(experience.id) : null;
+  const surveyManagementData =
+    activeTab === "surveys" ? await getSurveyManagementData(experience.id) : null;
 
   const isLocked = experience.status === "completed" || experience.status === "cancelled";
   const unsentSurveyCount = participants.filter((p) => p.surveyStatus === "not_sent").length;
@@ -163,6 +167,8 @@ export default async function ExperienceDetailPage({ params, searchParams }: Pro
       {activeTab === "logistics" && logisticsGroups && (
         <LogisticsTab experienceSlug={experience.slug} isLocked={isLocked} groups={logisticsGroups} />
       )}
+
+      {activeTab === "surveys" && surveyManagementData && <SurveyTab data={surveyManagementData} />}
     </div>
   );
 }
