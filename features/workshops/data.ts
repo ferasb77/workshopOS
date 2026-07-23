@@ -94,6 +94,7 @@ export async function getWorkshopBySlug(slug: string): Promise<WorkshopDetailRec
       "id, slug, title, description, program_type, tags, status, start_date, end_date, venue, city, country, capacity, client_name, client_contact_name, client_contact_email, facilitator_name, facilitator_email, facilitator_notes, materials_notes, logistics_notes, created_at, updated_at"
     )
     .eq("slug", slug)
+    .is("deleted_at", null)
     .maybeSingle();
 
   if (error) {
@@ -105,6 +106,16 @@ export async function getWorkshopBySlug(slug: string): Promise<WorkshopDetailRec
   }
 
   return mapWorkshop(data as WorkshopRow);
+}
+
+/**
+ * Same data as getWorkshopBySlug — kept as its own named export because the
+ * edit page's intent ("give me everything the edit form needs") is a
+ * different call site than the detail page's, even though today the query
+ * is identical.
+ */
+export async function getWorkshopForEdit(slug: string): Promise<WorkshopDetailRecord | null> {
+  return getWorkshopBySlug(slug);
 }
 
 // ---------------------------------------------------------------------------
@@ -156,6 +167,7 @@ export async function getWorkshopParticipants(workshopId: string): Promise<Works
     .from("workshops")
     .select("slug")
     .eq("id", workshopId)
+    .is("deleted_at", null)
     .maybeSingle();
 
   if (workshopError) {

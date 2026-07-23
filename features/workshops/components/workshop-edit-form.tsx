@@ -23,11 +23,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import type { WorkshopDetailRecord } from "@/features/workshops/data";
 
-import { createWorkshop, type CreateWorkshopResult } from "../actions";
-import { COUNTRIES, CREATE_STATUS_OPTIONS, PROGRAM_TYPES } from "../schema";
+import { updateWorkshop, type UpdateWorkshopResult } from "../actions";
+import { COUNTRIES, PROGRAM_TYPES, WORKSHOP_STATUS_OPTIONS, WORKSHOP_STATUS_TRANSITIONS } from "../schema";
+import { DeleteWorkshopDialog } from "./delete-workshop-dialog";
 
-const initialState: CreateWorkshopResult = { success: false, error: "", values: {} };
+const initialState: UpdateWorkshopResult = { success: false, error: "", values: {} };
+
+/** Postgres returns timestamptz as an ISO string with an offset; the value
+ * was originally written as a bare datetime-local string (see actions.ts),
+ * so slicing back to "YYYY-MM-DDTHH:mm" round-trips exactly — running it
+ * through Date getters instead would reinterpret it in the browser's local
+ * timezone and could shift the displayed time. */
+function toDateTimeLocalValue(iso: string): string {
+  return iso.slice(0, 16);
+}
 
 function FieldError({ messages }: { messages?: string[] }) {
   if (!messages || messages.length === 0) {
@@ -74,17 +85,19 @@ function StringSelectField({
   placeholder,
   options,
   defaultValue,
+  disabled,
 }: {
   name: string;
   label: string;
   placeholder: string;
   options: readonly string[];
   defaultValue?: string;
+  disabled?: boolean;
 }) {
   return (
     <div className="space-y-2">
       <Label htmlFor={name}>{label}</Label>
-      <Select name={name} defaultValue={defaultValue || undefined}>
+      <Select name={name} defaultValue={defaultValue || undefined} disabled={disabled}>
         <SelectTrigger id={name} className="w-full">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
@@ -105,26 +118,51 @@ function SubmitButton() {
 
   return (
     <Button type="submit" size="lg" disabled={pending}>
-      {pending ? "Creating..." : "Create Workshop"}
+      {pending ? "Saving..." : "Save Changes"}
     </Button>
   );
 }
 
-export function WorkshopForm() {
-  const [state, action] = useActionState(createWorkshop, initialState);
-  const fieldErrors = !state.success ? state.fieldErrors : undefined;
-  const values = !state.success ? state.values : {};
-  const field = (name: string) => values[name] ?? "";
+type Props = {
+  workshop: WorkshopDetailRecord;
+};
 
-  // Uncontrolled inputs only read `defaultValue` on mount. React also
-  // resets a <form>'s fields after any action dispatch (success or not),
-  // so on a validation/insert error we force a remount — keyed on the
-  // returned values — to re-hydrate the form with what the user typed
-  // instead of leaving it blank.
-  const formKey = !state.success ? JSON.stringify(state.values) : "initial";
+export function WorkshopEditForm({ workshop }: Props) {
+  const boundUpdateWorkshop = updateWorkshop.bind(null, workshop.id, workshop.slug);
+  const [state, action] = useActionState(boundUpdateWorkshop, initialState);
+
+  const fieldErrors = !state.success ? state.fieldErrors : undefined;
+  const errorValues = !state.success ? state.values : undefined;
+
+  const readOnly = workshop.status === "completed" || workshop.status === "cancelled";
+  const canDelete = workshop.status === "draft" || workshop.status === "cancelled";
+
+  // Falls back to the workshop's current value; once the action returns an
+  // error, falls back to what the user actually typed instead so it isn't
+  // lost. See workshop-form.tsx for why the form is remounted (via `key`)
+  // on every error — uncontrolled fields only read defaultValue on mount.
+  const field = (name: string, fallback: string): string => {
+    if (errorValues && name in errorValues) {
+      return errorValues[name] ?? "";
+    }
+    return fallback;
+  };
+
+  const formKey = errorValues ? JSON.stringify(errorValues) : "initial";
+
+  const statusOptions = WORKSHOP_STATUS_OPTIONS.filter((option) =>
+    WORKSHOP_STATUS_TRANSITIONS[workshop.status].includes(option.value)
+  );
 
   return (
     <form key={formKey} action={action} className="space-y-6" noValidate>
+      {readOnly && (
+        <div className="rounded-lg border border-border-subtle bg-night/40 px-4 py-3 text-sm text-muted-foreground">
+          This workshop has been {workshop.status === "completed" ? "completed" : "cancelled"} and
+          cannot be edited.
+        </div>
+      )}
+
       {!state.success && state.error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive-foreground">
           {state.error}
@@ -140,8 +178,18 @@ export function WorkshopForm() {
           <Label htmlFor="title">
             Title <span className="text-gold">*</span>
           </Label>
-          <Input id="title" name="title" required defaultValue={field("title")} />
+          <Input
+            id="title"
+            name="title"
+            required
+            disabled={readOnly}
+            defaultValue={field("title", workshop.title)}
+          />
           <FieldError messages={fieldErrors?.title} />
+          <p className="text-xs text-muted-foreground">
+            URL: /dashboard/workshops/{workshop.slug} — the slug is set once and cannot be
+            changed.
+          </p>
         </div>
 
         <StringSelectField
@@ -149,24 +197,23 @@ export function WorkshopForm() {
           label="Program type"
           placeholder="Select a type"
           options={PROGRAM_TYPES}
-          defaultValue={field("programType")}
+          defaultValue={field("programType", workshop.programType ?? "")}
+          disabled={readOnly}
         />
 
         <div className="space-y-2">
           <Label htmlFor="status">Status</Label>
           <Select
             name="status"
-            defaultValue={field("status") || "active"}
-            items={CREATE_STATUS_OPTIONS.map((option) => ({
-              value: option.value,
-              label: option.label,
-            }))}
+            defaultValue={field("status", workshop.status)}
+            disabled={readOnly}
+            items={statusOptions.map((option) => ({ value: option.value, label: option.label }))}
           >
             <SelectTrigger id="status" className="w-full">
               <SelectValue placeholder="Select a status" />
             </SelectTrigger>
             <SelectContent>
-              {CREATE_STATUS_OPTIONS.map((option) => (
+              {statusOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>
@@ -181,7 +228,8 @@ export function WorkshopForm() {
             id="description"
             name="description"
             rows={4}
-            defaultValue={field("description")}
+            disabled={readOnly}
+            defaultValue={field("description", workshop.description ?? "")}
           />
         </div>
 
@@ -191,7 +239,8 @@ export function WorkshopForm() {
             id="tags"
             name="tags"
             placeholder="e.g. leadership, executive, arabic-delivery"
-            defaultValue={field("tags")}
+            disabled={readOnly}
+            defaultValue={field("tags", workshop.tags.join(", "))}
           />
           <p className="text-xs text-muted-foreground">Comma-separated.</p>
         </div>
@@ -211,7 +260,8 @@ export function WorkshopForm() {
             name="startDate"
             type="datetime-local"
             required
-            defaultValue={field("startDate")}
+            disabled={readOnly}
+            defaultValue={field("startDate", toDateTimeLocalValue(workshop.startDate))}
           />
           <FieldError messages={fieldErrors?.startDate} />
         </div>
@@ -225,7 +275,8 @@ export function WorkshopForm() {
             name="endDate"
             type="datetime-local"
             required
-            defaultValue={field("endDate")}
+            disabled={readOnly}
+            defaultValue={field("endDate", toDateTimeLocalValue(workshop.endDate))}
           />
           <FieldError messages={fieldErrors?.endDate} />
         </div>
@@ -234,13 +285,24 @@ export function WorkshopForm() {
           <Label htmlFor="venueName">
             Venue name <span className="text-gold">*</span>
           </Label>
-          <Input id="venueName" name="venueName" required defaultValue={field("venueName")} />
+          <Input
+            id="venueName"
+            name="venueName"
+            required
+            disabled={readOnly}
+            defaultValue={field("venueName", workshop.venue ?? "")}
+          />
           <FieldError messages={fieldErrors?.venueName} />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="city">City</Label>
-          <Input id="city" name="city" defaultValue={field("city")} />
+          <Input
+            id="city"
+            name="city"
+            disabled={readOnly}
+            defaultValue={field("city", workshop.city ?? "")}
+          />
         </div>
 
         <StringSelectField
@@ -248,7 +310,8 @@ export function WorkshopForm() {
           label="Country"
           placeholder="Select a country"
           options={COUNTRIES}
-          defaultValue={field("country")}
+          defaultValue={field("country", workshop.country ?? "")}
+          disabled={readOnly}
         />
 
         <div className="space-y-2">
@@ -261,7 +324,8 @@ export function WorkshopForm() {
             type="number"
             min={1}
             required
-            defaultValue={field("capacity")}
+            disabled={readOnly}
+            defaultValue={field("capacity", String(workshop.capacity))}
           />
           <FieldError messages={fieldErrors?.capacity} />
         </div>
@@ -274,7 +338,12 @@ export function WorkshopForm() {
       >
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="clientName">Client organization name</Label>
-          <Input id="clientName" name="clientName" defaultValue={field("clientName")} />
+          <Input
+            id="clientName"
+            name="clientName"
+            disabled={readOnly}
+            defaultValue={field("clientName", workshop.clientName ?? "")}
+          />
         </div>
 
         <div className="space-y-2">
@@ -282,7 +351,8 @@ export function WorkshopForm() {
           <Input
             id="clientContactName"
             name="clientContactName"
-            defaultValue={field("clientContactName")}
+            disabled={readOnly}
+            defaultValue={field("clientContactName", workshop.clientContactName ?? "")}
           />
         </div>
 
@@ -292,7 +362,8 @@ export function WorkshopForm() {
             id="clientContactEmail"
             name="clientContactEmail"
             type="email"
-            defaultValue={field("clientContactEmail")}
+            disabled={readOnly}
+            defaultValue={field("clientContactEmail", workshop.clientContactEmail ?? "")}
           />
           <FieldError messages={fieldErrors?.clientContactEmail} />
         </div>
@@ -308,7 +379,8 @@ export function WorkshopForm() {
           <Input
             id="facilitatorName"
             name="facilitatorName"
-            defaultValue={field("facilitatorName")}
+            disabled={readOnly}
+            defaultValue={field("facilitatorName", workshop.facilitatorName ?? "")}
           />
         </div>
 
@@ -318,7 +390,8 @@ export function WorkshopForm() {
             id="facilitatorEmail"
             name="facilitatorEmail"
             type="email"
-            defaultValue={field("facilitatorEmail")}
+            disabled={readOnly}
+            defaultValue={field("facilitatorEmail", workshop.facilitatorEmail ?? "")}
           />
           <FieldError messages={fieldErrors?.facilitatorEmail} />
         </div>
@@ -329,7 +402,8 @@ export function WorkshopForm() {
             id="facilitatorNotes"
             name="facilitatorNotes"
             rows={3}
-            defaultValue={field("facilitatorNotes")}
+            disabled={readOnly}
+            defaultValue={field("facilitatorNotes", workshop.facilitatorNotes ?? "")}
           />
         </div>
       </FormSection>
@@ -347,7 +421,8 @@ export function WorkshopForm() {
             name="materialsNotes"
             rows={3}
             placeholder="What needs to be prepared, printed, or shipped."
-            defaultValue={field("materialsNotes")}
+            disabled={readOnly}
+            defaultValue={field("materialsNotes", workshop.materialsNotes ?? "")}
           />
         </div>
 
@@ -358,21 +433,26 @@ export function WorkshopForm() {
             name="logisticsNotes"
             rows={3}
             placeholder="Venue setup, catering, AV requirements."
-            defaultValue={field("logisticsNotes")}
+            disabled={readOnly}
+            defaultValue={field("logisticsNotes", workshop.logisticsNotes ?? "")}
           />
         </div>
       </FormSection>
 
-      <div className="flex items-center justify-end gap-3">
-        <Button
-          variant="ghost"
-          size="lg"
-          nativeButton={false}
-          render={<Link href="/dashboard/workshops" />}
-        >
-          Cancel
-        </Button>
-        <SubmitButton />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>{canDelete && <DeleteWorkshopDialog workshopId={workshop.id} />}</div>
+
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="lg"
+            nativeButton={false}
+            render={<Link href={`/dashboard/workshops/${workshop.slug}`} />}
+          >
+            {readOnly ? "Back" : "Cancel"}
+          </Button>
+          {!readOnly && <SubmitButton />}
+        </div>
       </div>
     </form>
   );

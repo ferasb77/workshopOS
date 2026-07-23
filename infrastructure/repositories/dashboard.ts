@@ -79,6 +79,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     supabase
       .from("workshops")
       .select("id, title, venue, start_date, end_date, capacity, status, slug")
+      .is("deleted_at", null)
       .order("start_date", { ascending: false }),
     supabase
       .from("participants")

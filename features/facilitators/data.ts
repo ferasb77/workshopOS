@@ -57,7 +57,11 @@ export async function getAllFacilitators(): Promise<FacilitatorSummary[]> {
       )
       .eq("is_active", true)
       .order("first_name", { ascending: true }),
-    supabase.from("workshops").select("id, facilitator_email").not("facilitator_email", "is", null),
+    supabase
+      .from("workshops")
+      .select("id, facilitator_email")
+      .not("facilitator_email", "is", null)
+      .is("deleted_at", null),
     supabase.from("survey_responses").select("workshop_id, overall_rating"),
   ]);
 
@@ -252,7 +256,8 @@ export async function getFacilitatorDeliveryHistory(
   const { data: workshopRows, error: workshopsError } = await supabase
     .from("workshops")
     .select("id, slug, title, start_date, venue, facilitator_email")
-    .not("facilitator_email", "is", null);
+    .not("facilitator_email", "is", null)
+    .is("deleted_at", null);
 
   if (workshopsError) {
     throw new Error(workshopsError.message);
