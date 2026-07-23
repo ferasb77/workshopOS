@@ -3,6 +3,8 @@
 import { participantSchema } from "./schema";
 import type { CheckInResult } from "./types";
 import { createClient } from "@/infrastructure/supabase/server";
+import { fetchFilteredParticipants } from "./data";
+import type { ParticipantFilters, ParticipantSurveyStatus } from "./data";
 
 export async function checkInParticipant(
   _: CheckInResult | null,
@@ -73,4 +75,85 @@ export async function checkInParticipant(
     success: true,
     message: "Check-in completed successfully.",
   };
+}
+
+// ---------------------------------------------------------------------------
+// CSV export
+// ---------------------------------------------------------------------------
+
+function csvEscape(value: string): string {
+  if (/[",\n]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+function csvRow(values: string[]): string {
+  return values.map(csvEscape).join(",");
+}
+
+const SURVEY_STATUS_LABEL: Record<ParticipantSurveyStatus, string> = {
+  not_sent: "Not Sent",
+  sent: "Sent",
+  completed: "Completed",
+};
+
+function formatCsvDateTime(value: string | null): string {
+  if (!value) {
+    return "";
+  }
+  return new Date(value).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+const CSV_HEADER = [
+  "First Name",
+  "Last Name",
+  "Email",
+  "Mobile",
+  "Company",
+  "Job Title",
+  "Experience",
+  "Client",
+  "Checked In",
+  "Check-in Time",
+  "Survey Status",
+  "Registration Date",
+];
+
+/**
+ * Returns a CSV string; the caller (a Client Component) turns it into a
+ * downloadable Blob — no client-side CSV library involved. Lives in this
+ * "use server" module (not data.ts) because Next.js doesn't allow an inline
+ * "use server" export in a file that a Client Component imports from
+ * alongside other, non-action server-only functions.
+ */
+export async function exportParticipants(
+  filters: ParticipantFilters & { search?: string }
+): Promise<string> {
+  const items = await fetchFilteredParticipants(filters);
+
+  const rows = items.map((item) =>
+    csvRow([
+      item.firstName,
+      item.lastName,
+      item.email,
+      item.mobile,
+      item.company ?? "",
+      item.jobTitle ?? "",
+      item.experienceTitle ?? "",
+      item.clientName ?? "",
+      item.checkedIn ? "Yes" : "No",
+      formatCsvDateTime(item.checkedInAt),
+      SURVEY_STATUS_LABEL[item.surveyStatus],
+      formatCsvDateTime(item.registeredAt),
+    ])
+  );
+
+  return [csvRow(CSV_HEADER), ...rows].join("\r\n");
 }

@@ -1,4 +1,7 @@
+import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -32,9 +35,19 @@ type Props = {
 export function RecentParticipantsPanel({ participants }: Props) {
   return (
     <Card className="bg-surface-elevated">
-      <CardHeader>
-        <CardTitle>Recent Participants</CardTitle>
-        <CardDescription>The 10 most recently registered.</CardDescription>
+      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4">
+        <div>
+          <CardTitle>Recent Participants</CardTitle>
+          <CardDescription>The 10 most recently registered.</CardDescription>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          nativeButton={false}
+          render={<Link href="/dashboard/participants" />}
+        >
+          View all
+        </Button>
       </CardHeader>
       <CardContent>
         {participants.length === 0 ? (

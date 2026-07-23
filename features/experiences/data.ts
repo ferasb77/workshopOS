@@ -3,6 +3,28 @@ import type { ExperienceStatus } from "@/infrastructure/repositories/dashboard";
 import type { ExperienceType } from "./schema";
 
 // ---------------------------------------------------------------------------
+// Options (for select/filter dropdowns elsewhere in the app)
+// ---------------------------------------------------------------------------
+
+export type ExperienceOption = { id: string; title: string };
+
+export async function getExperienceOptions(): Promise<ExperienceOption[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("experiences")
+    .select("id, title")
+    .is("deleted_at", null)
+    .order("title", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data ?? [];
+}
+
+// ---------------------------------------------------------------------------
 // Experience
 // ---------------------------------------------------------------------------
 
