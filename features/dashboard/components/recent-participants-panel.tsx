@@ -42,44 +42,72 @@ export function RecentParticipantsPanel({ participants }: Props) {
             No participants yet.
           </p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Company</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Workshop</TableHead>
-                <TableHead>Checked In</TableHead>
-                <TableHead className="text-right">Registered</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Company</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Workshop</TableHead>
+                    <TableHead>Checked In</TableHead>
+                    <TableHead className="text-right">Registered</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {participants.map((participant) => (
+                    <TableRow key={participant.id}>
+                      <TableCell className="font-medium">{participant.fullName}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {participant.company ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {participant.jobTitle ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {participant.workshopTitle ?? "—"}
+                      </TableCell>
+                      <TableCell>
+                        {participant.checkedIn ? (
+                          <Badge>Checked In</Badge>
+                        ) : (
+                          <Badge variant="secondary">Not Checked In</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {formatDateTime(participant.createdAt)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <ul className="space-y-3 md:hidden">
               {participants.map((participant) => (
-                <TableRow key={participant.id}>
-                  <TableCell className="font-medium">{participant.fullName}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {participant.company ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {participant.jobTitle ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {participant.workshopTitle ?? "—"}
-                  </TableCell>
-                  <TableCell>
+                <li
+                  key={participant.id}
+                  className="rounded-lg border border-border-subtle bg-night/40 p-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="font-medium text-ivory">{participant.fullName}</p>
                     {participant.checkedIn ? (
                       <Badge>Checked In</Badge>
                     ) : (
                       <Badge variant="secondary">Not Checked In</Badge>
                     )}
-                  </TableCell>
-                  <TableCell className="text-right text-muted-foreground">
-                    {formatDateTime(participant.createdAt)}
-                  </TableCell>
-                </TableRow>
+                  </div>
+                  {participant.company ? (
+                    <p className="mt-1 text-sm text-muted-foreground">{participant.company}</p>
+                  ) : null}
+                  {participant.workshopTitle ? (
+                    <p className="text-sm text-muted-foreground">{participant.workshopTitle}</p>
+                  ) : null}
+                </li>
               ))}
-            </TableBody>
-          </Table>
+            </ul>
+          </>
         )}
       </CardContent>
     </Card>

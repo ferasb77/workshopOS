@@ -133,7 +133,7 @@ export function FacilitatorDirectory({ facilitators }: Props) {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search by name, expertise, certification, language, or region..."
-            className="h-9 pl-9"
+            className="h-11 pl-9 md:h-9"
           />
         </div>
 

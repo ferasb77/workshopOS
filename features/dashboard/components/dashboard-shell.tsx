@@ -55,7 +55,7 @@ export function DashboardShell({ session, children }: Props) {
           <SidebarTrigger />
         </header>
 
-        <div className="flex-1 p-6">{children}</div>
+        <div className="flex-1 p-4 md:p-6">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   );

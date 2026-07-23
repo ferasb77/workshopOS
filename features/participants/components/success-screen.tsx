@@ -10,7 +10,7 @@ export function SuccessScreen() {
         width={600}
         height={150}
         priority
-        className="h-auto w-100"
+        className="h-auto w-100 max-w-full"
       />
 
       <CheckCircle2
@@ -29,7 +29,7 @@ export function SuccessScreen() {
 
       <div className="mt-10 rounded-2xl bg-slate-50 px-8 py-6">
         <p className="text-sm uppercase tracking-[0.3em] text-amber-600">
-          Today's Workshop
+          Today&apos;s Workshop
         </p>
 
         <h3 className="mt-3 text-2xl font-semibold">

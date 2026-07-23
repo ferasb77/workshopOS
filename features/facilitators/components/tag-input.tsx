@@ -50,7 +50,7 @@ export function TagInput({ name, label, placeholder, defaultValue = [] }: Props)
       <input type="hidden" name={name} value={tags.join(",")} />
       <div
         className={cn(
-          "flex min-h-8 flex-wrap items-center gap-1.5 rounded-lg border border-input bg-transparent px-2.5 py-1.5",
+          "flex min-h-11 flex-wrap items-center gap-1.5 rounded-lg border border-input bg-transparent px-2.5 py-1.5 md:min-h-8",
           "focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50"
         )}
       >

@@ -81,7 +81,7 @@
   --accent-foreground: var(--night);
   --destructive: #7f1d1d;
   --destructive-foreground: var(--ivory);
-  --border: rgba(201, 169, 110, 0.15);
+  --border: rgba(201, 169, 110, 0.3);
   --input: var(--surface-elevated);
   --ring: var(--gold);
   --chart-1: oklch(0.87 0 0);

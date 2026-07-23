@@ -117,7 +117,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" size="lg" disabled={pending}>
+    <Button type="submit" size="lg" disabled={pending} className="w-full sm:w-auto">
       {pending ? "Saving..." : "Save Changes"}
     </Button>
   );
@@ -439,14 +439,19 @@ export function WorkshopEditForm({ workshop }: Props) {
         </div>
       </FormSection>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>{canDelete && <DeleteWorkshopDialog workshopId={workshop.id} />}</div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div>
+          {canDelete && (
+            <DeleteWorkshopDialog workshopId={workshop.id} className="w-full sm:w-auto" />
+          )}
+        </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
           <Button
             variant="ghost"
             size="lg"
             nativeButton={false}
+            className="w-full sm:w-auto"
             render={<Link href={`/dashboard/workshops/${workshop.slug}`} />}
           >
             {readOnly ? "Back" : "Cancel"}

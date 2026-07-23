@@ -100,7 +100,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" size="lg" disabled={pending}>
+    <Button type="submit" size="lg" disabled={pending} className="w-full sm:w-auto">
       {pending ? "Adding..." : "Add Facilitator"}
     </Button>
   );
@@ -320,11 +320,12 @@ export function FacilitatorForm() {
         </div>
       </FormSection>
 
-      <div className="flex items-center justify-end gap-3">
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
         <Button
           variant="ghost"
           size="lg"
           nativeButton={false}
+          className="w-full sm:w-auto"
           render={<Link href="/dashboard/facilitators" />}
         >
           Cancel

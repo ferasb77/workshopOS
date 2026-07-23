@@ -18,9 +18,10 @@ import { deleteWorkshop } from "../actions";
 
 type Props = {
   workshopId: string;
+  className?: string;
 };
 
-export function DeleteWorkshopDialog({ workshopId }: Props) {
+export function DeleteWorkshopDialog({ workshopId, className }: Props) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -39,7 +40,7 @@ export function DeleteWorkshopDialog({ workshopId }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button type="button" variant="destructive" />}>
+      <DialogTrigger render={<Button type="button" variant="destructive" className={className} />}>
         Delete Workshop
       </DialogTrigger>
 

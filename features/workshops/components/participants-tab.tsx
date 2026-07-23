@@ -119,56 +119,92 @@ export function ParticipantsTab({ workshop, participants, registrationUrl }: Pro
           />
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Company</TableHead>
-                <TableHead>Job Title</TableHead>
-                <TableHead>Check-in</TableHead>
-                <TableHead>Checked In At</TableHead>
-                <TableHead>Registered</TableHead>
-                <TableHead>Survey</TableHead>
-                <TableHead className="text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {participants.map((participant) => (
-                <TableRow key={participant.id}>
-                  <TableCell className="font-medium">
-                    {participant.firstName} {participant.lastName}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {participant.company ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {participant.jobTitle ?? "—"}
-                  </TableCell>
-                  <TableCell>
-                    <CheckInBadge checkedIn={participant.checkedIn} />
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {participant.checkedIn ? formatDateTime(participant.checkedInAt) : "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDateTime(participant.registeredAt)}
-                  </TableCell>
-                  <TableCell>
-                    <SurveyStatusBadge status={participant.surveyStatus} />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <SendSurveyButton
-                      participantId={participant.id}
-                      workshopId={workshop.id}
-                      workshopSlug={workshop.slug}
-                      workshopTitle={workshop.title}
-                      status={participant.surveyStatus}
-                    />
-                  </TableCell>
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Company</TableHead>
+                  <TableHead>Job Title</TableHead>
+                  <TableHead>Check-in</TableHead>
+                  <TableHead>Checked In At</TableHead>
+                  <TableHead>Registered</TableHead>
+                  <TableHead>Survey</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {participants.map((participant) => (
+                  <TableRow key={participant.id}>
+                    <TableCell className="font-medium">
+                      {participant.firstName} {participant.lastName}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {participant.company ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {participant.jobTitle ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      <CheckInBadge checkedIn={participant.checkedIn} />
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {participant.checkedIn ? formatDateTime(participant.checkedInAt) : "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDateTime(participant.registeredAt)}
+                    </TableCell>
+                    <TableCell>
+                      <SurveyStatusBadge status={participant.surveyStatus} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <SendSurveyButton
+                        participantId={participant.id}
+                        workshopId={workshop.id}
+                        workshopSlug={workshop.slug}
+                        workshopTitle={workshop.title}
+                        status={participant.surveyStatus}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          <ul className="space-y-3 md:hidden">
+            {participants.map((participant) => (
+              <li
+                key={participant.id}
+                className="rounded-lg border border-border-subtle bg-night/40 p-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p className="font-medium text-ivory">
+                    {participant.firstName} {participant.lastName}
+                  </p>
+                  <CheckInBadge checkedIn={participant.checkedIn} />
+                </div>
+                {participant.company || participant.jobTitle ? (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {[participant.company, participant.jobTitle].filter(Boolean).join(" · ")}
+                  </p>
+                ) : null}
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Registered {formatDateTime(participant.registeredAt)}
+                </p>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <SurveyStatusBadge status={participant.surveyStatus} />
+                  <SendSurveyButton
+                    participantId={participant.id}
+                    workshopId={workshop.id}
+                    workshopSlug={workshop.slug}
+                    workshopTitle={workshop.title}
+                    status={participant.surveyStatus}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
         </CardContent>
       </Card>
     </div>

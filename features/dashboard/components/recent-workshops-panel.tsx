@@ -49,40 +49,69 @@ export function RecentWorkshopsPanel({
             No workshops yet.
           </p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Workshop</TableHead>
-                <TableHead>Venue</TableHead>
-                <TableHead>Dates</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Participants</TableHead>
-                <TableHead className="text-right">Checked In</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Workshop</TableHead>
+                    <TableHead>Venue</TableHead>
+                    <TableHead>Dates</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Participants</TableHead>
+                    <TableHead className="text-right">Checked In</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {workshops.map((workshop) => (
+                    <TableRow key={workshop.id}>
+                      <TableCell className="font-medium">
+                        <Link href={`/dashboard/workshops/${workshop.slug}`} className="hover:text-gold">
+                          {workshop.title}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {workshop.venue ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatDate(workshop.startDate)} – {formatDate(workshop.endDate)}
+                      </TableCell>
+                      <TableCell>
+                        <WorkshopStatusBadge status={workshop.status} />
+                      </TableCell>
+                      <TableCell className="text-right">{workshop.participantCount}</TableCell>
+                      <TableCell className="text-right">{workshop.checkedInCount}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <ul className="space-y-3 md:hidden">
               {workshops.map((workshop) => (
-                <TableRow key={workshop.id}>
-                  <TableCell className="font-medium">
-                    <Link href={`/dashboard/workshops/${workshop.slug}`} className="hover:text-gold">
-                      {workshop.title}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {workshop.venue ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDate(workshop.startDate)} – {formatDate(workshop.endDate)}
-                  </TableCell>
-                  <TableCell>
-                    <WorkshopStatusBadge status={workshop.status} />
-                  </TableCell>
-                  <TableCell className="text-right">{workshop.participantCount}</TableCell>
-                  <TableCell className="text-right">{workshop.checkedInCount}</TableCell>
-                </TableRow>
+                <li key={workshop.id}>
+                  <Link
+                    href={`/dashboard/workshops/${workshop.slug}`}
+                    className="block rounded-lg border border-border-subtle bg-night/40 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="font-medium text-ivory">{workshop.title}</p>
+                      <WorkshopStatusBadge status={workshop.status} />
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {formatDate(workshop.startDate)} – {formatDate(workshop.endDate)}
+                    </p>
+                    {workshop.venue ? (
+                      <p className="text-sm text-muted-foreground">{workshop.venue}</p>
+                    ) : null}
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {workshop.participantCount} participants · {workshop.checkedInCount} checked in
+                    </p>
+                  </Link>
+                </li>
               ))}
-            </TableBody>
-          </Table>
+            </ul>
+          </>
         )}
       </CardContent>
     </Card>
