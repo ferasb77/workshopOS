@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { SurveyStatus } from "@/infrastructure/repositories/surveys";
+import type { SurveyStatus } from "@/features/workshops/data";
 
 const LABEL: Record<SurveyStatus, string> = {
   not_sent: "Not Sent",

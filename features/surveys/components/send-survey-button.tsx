@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
-import type { SurveyStatus } from "@/infrastructure/repositories/surveys";
+import type { SurveyStatus } from "@/features/workshops/data";
 
 import { sendSurveyToParticipant, type SendSurveyResult } from "../actions";
 

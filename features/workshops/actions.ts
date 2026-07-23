@@ -125,3 +125,28 @@ export async function createWorkshop(
   revalidatePath("/dashboard/workshops");
   redirect(`/dashboard/workshops/${inserted.slug}`);
 }
+
+export type UpdateLogisticsTaskResult = { success: true } | { success: false; error: string };
+
+export async function updateLogisticsTask(
+  taskId: string,
+  completed: boolean,
+  workshopSlug: string
+): Promise<UpdateLogisticsTaskResult> {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("logistics_tasks")
+    .update({
+      status: completed ? "completed" : "pending",
+      completed_at: completed ? new Date().toISOString() : null,
+    })
+    .eq("id", taskId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath(`/dashboard/workshops/${workshopSlug}`);
+  return { success: true };
+}
