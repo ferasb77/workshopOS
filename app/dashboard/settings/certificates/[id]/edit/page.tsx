@@ -4,7 +4,10 @@ import { notFound } from "next/navigation";
 
 import { updateCertificateTemplate } from "@/features/certificates/actions";
 import { TemplateForm } from "@/features/certificates/components/template-form";
+import { TemplateTypeToggle } from "@/features/certificates/components/template-type-toggle";
+import { UploadedTemplateEditor } from "@/features/certificates/components/uploaded-template-editor";
 import { getCertificateTemplateById } from "@/features/certificates/data";
+import { getSessionContext } from "@/infrastructure/session/session-context";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -12,7 +15,7 @@ type Props = {
 
 export default async function EditCertificateTemplatePage({ params }: Props) {
   const { id } = await params;
-  const template = await getCertificateTemplateById(id);
+  const [template, session] = await Promise.all([getCertificateTemplateById(id), getSessionContext()]);
 
   if (!template) {
     notFound();
@@ -35,7 +38,13 @@ export default async function EditCertificateTemplatePage({ params }: Props) {
         <p className="mt-2 text-muted-foreground">{template.name}</p>
       </div>
 
-      <TemplateForm action={boundUpdate} submitLabel="Save Changes" template={template} />
+      <TemplateTypeToggle templateId={template.id} currentType={template.templateType} />
+
+      {template.templateType === "generated" ? (
+        <TemplateForm action={boundUpdate} submitLabel="Save Changes" template={template} />
+      ) : (
+        <UploadedTemplateEditor workspaceId={session.workspaceId} template={template} />
+      )}
     </div>
   );
 }

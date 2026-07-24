@@ -1,6 +1,7 @@
 import { createClient } from "@/infrastructure/supabase/server";
 import { createServiceRoleClient } from "@/infrastructure/supabase/service-role";
 import { getExperienceParticipants } from "@/features/experiences/data";
+import type { CertificateTemplateType, FieldPlacements } from "./schema";
 
 import { getCertificatePublicUrl } from "./storage";
 
@@ -24,6 +25,11 @@ export type CertificateTemplate = {
   signatoryName: string | null;
   signatoryTitle: string | null;
   isDefault: boolean;
+  templateType: CertificateTemplateType;
+  uploadedPdfPath: string | null;
+  fieldPlacements: FieldPlacements;
+  pageWidthPts: number;
+  pageHeightPts: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -44,12 +50,17 @@ type CertificateTemplateRow = {
   signatory_name: string | null;
   signatory_title: string | null;
   is_default: boolean;
+  template_type: CertificateTemplateType;
+  uploaded_pdf_path: string | null;
+  field_placements: FieldPlacements;
+  page_width_pts: number;
+  page_height_pts: number;
   created_at: string;
   updated_at: string;
 };
 
 const TEMPLATE_SELECT =
-  "id, workspace_id, name, organization_name, organization_logo_url, primary_color, secondary_color, background_color, font_family, title_text, body_text, footer_text, signatory_name, signatory_title, is_default, created_at, updated_at";
+  "id, workspace_id, name, organization_name, organization_logo_url, primary_color, secondary_color, background_color, font_family, title_text, body_text, footer_text, signatory_name, signatory_title, is_default, template_type, uploaded_pdf_path, field_placements, page_width_pts, page_height_pts, created_at, updated_at";
 
 function mapTemplate(row: CertificateTemplateRow): CertificateTemplate {
   return {
@@ -68,6 +79,11 @@ function mapTemplate(row: CertificateTemplateRow): CertificateTemplate {
     signatoryName: row.signatory_name,
     signatoryTitle: row.signatory_title,
     isDefault: row.is_default,
+    templateType: row.template_type,
+    uploadedPdfPath: row.uploaded_pdf_path,
+    fieldPlacements: row.field_placements,
+    pageWidthPts: row.page_width_pts,
+    pageHeightPts: row.page_height_pts,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

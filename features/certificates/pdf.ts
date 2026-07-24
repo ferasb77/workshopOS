@@ -1,5 +1,8 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type RGB } from "pdf-lib";
 
+import type { FieldPlacements } from "./schema";
+import { downloadTemplatePdf } from "./storage";
+
 const PAGE_WIDTH = 842;
 const PAGE_HEIGHT = 595;
 const BORDER_INSET = 20;
@@ -160,6 +163,81 @@ export async function generateCertificatePdf(input: CertificatePdfInput): Promis
 
   if (input.footerText) {
     drawCentered(page, input.footerText, 48, regular, 9, muted);
+  }
+
+  return pdfDoc.save();
+}
+
+// ---------------------------------------------------------------------------
+// Uploaded template — draws the same five dynamic fields onto an
+// operator-supplied background PDF instead of a pdf-lib-drawn layout.
+// ---------------------------------------------------------------------------
+
+export type UploadedCertificateInput = {
+  uploadedPdfPath: string;
+  fieldPlacements: FieldPlacements;
+  participantName: string;
+  experienceTitle: string;
+  organizationName: string;
+  completionDate: string;
+  verificationCode: string;
+};
+
+const FIELD_VALUE_MAP: Record<
+  keyof FieldPlacements,
+  (input: UploadedCertificateInput) => string
+> = {
+  participant_name: (input) => input.participantName,
+  experience_title: (input) => input.experienceTitle,
+  completion_date: (input) => formatCompletionDate(input.completionDate),
+  organization_name: (input) => input.organizationName,
+  verification_code: (input) => input.verificationCode,
+};
+
+/**
+ * Loads the operator's uploaded PDF as-is (no border/corners/background
+ * drawn — that's the whole point of "uploaded", the design IS the PDF) and
+ * overlays the five dynamic fields at their configured positions. Alignment
+ * is resolved here, not stored: `field_placements.x` is always the anchor
+ * point pdf-lib's drawText would use for left alignment, so center/right
+ * shift the actual draw origin left by the measured text width (half of it
+ * for center) — the same technique drawCentered above uses, generalized to
+ * three alignments and driven by data instead of being hardcoded per field.
+ */
+export async function generateCertificateFromUpload(input: UploadedCertificateInput): Promise<Uint8Array> {
+  const templateBytes = await downloadTemplatePdf(input.uploadedPdfPath);
+  const pdfDoc = await PDFDocument.load(templateBytes);
+  const page = pdfDoc.getPages()[0];
+
+  if (!page) {
+    throw new Error("The uploaded template PDF has no pages.");
+  }
+
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+  for (const key of Object.keys(input.fieldPlacements) as (keyof FieldPlacements)[]) {
+    const placement = input.fieldPlacements[key];
+    const text = FIELD_VALUE_MAP[key](input);
+
+    if (!text) {
+      continue;
+    }
+
+    const width = font.widthOfTextAtSize(text, placement.font_size);
+    let x = placement.x;
+    if (placement.align === "center") {
+      x = placement.x - width / 2;
+    } else if (placement.align === "right") {
+      x = placement.x - width;
+    }
+
+    page.drawText(text, {
+      x,
+      y: placement.y,
+      size: placement.font_size,
+      font,
+      color: hexToRgb(placement.color),
+    });
   }
 
   return pdfDoc.save();

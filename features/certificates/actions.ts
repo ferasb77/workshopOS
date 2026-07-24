@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { PDFDocument } from "pdf-lib";
 
 import { requireEnv } from "@/infrastructure/env";
 import { getResendClient, getResendFromAddress } from "@/infrastructure/email/resend-client";
@@ -10,9 +11,23 @@ import { createClient } from "@/infrastructure/supabase/server";
 import { createServiceRoleClient } from "@/infrastructure/supabase/service-role";
 
 import { getExperienceCertificates } from "./data";
-import { generateCertificatePdf } from "./pdf";
-import { certificateTemplateSchema, completionCriteriaSchema, type CompletionCriteriaFormValues } from "./schema";
-import { downloadCertificatePdf, uploadCertificatePdf } from "./storage";
+import { generateCertificateFromUpload, generateCertificatePdf } from "./pdf";
+import {
+  certificateTemplateSchema,
+  completionCriteriaSchema,
+  fieldPlacementsSchema,
+  uploadedTemplateBasicsSchema,
+  CERTIFICATE_TEMPLATE_TYPES,
+  type CertificateTemplateType,
+  type CompletionCriteriaFormValues,
+  type FieldPlacements,
+} from "./schema";
+import {
+  downloadCertificatePdf,
+  getTemplatePdfSignedUrl,
+  uploadCertificatePdf,
+  uploadTemplatePdf,
+} from "./storage";
 
 function resolveAppUrl(): { ok: true; url: string } | { ok: false; error: string } {
   try {
@@ -44,24 +59,14 @@ async function resolveTemplate(
   supabase: ReturnType<typeof createServiceRoleClient>,
   certificateTemplateId: string | null
 ) {
+  const select =
+    "id, workspace_id, organization_name, primary_color, secondary_color, background_color, font_family, title_text, body_text, footer_text, signatory_name, signatory_title, template_type, uploaded_pdf_path, field_placements";
+
   if (certificateTemplateId) {
-    return supabase
-      .from("certificate_templates")
-      .select(
-        "id, workspace_id, organization_name, primary_color, secondary_color, background_color, font_family, title_text, body_text, footer_text, signatory_name, signatory_title"
-      )
-      .eq("id", certificateTemplateId)
-      .maybeSingle();
+    return supabase.from("certificate_templates").select(select).eq("id", certificateTemplateId).maybeSingle();
   }
 
-  return supabase
-    .from("certificate_templates")
-    .select(
-      "id, workspace_id, organization_name, primary_color, secondary_color, background_color, font_family, title_text, body_text, footer_text, signatory_name, signatory_title"
-    )
-    .eq("is_default", true)
-    .limit(1)
-    .maybeSingle();
+  return supabase.from("certificate_templates").select(select).eq("is_default", true).limit(1).maybeSingle();
 }
 
 export async function issueCertificate(participantId: string, experienceId: string): Promise<IssueCertificateResult> {
@@ -142,6 +147,9 @@ export async function issueCertificate(participantId: string, experienceId: stri
   if (!template) {
     return { success: false, error: "No certificate template is configured. Set one up in Settings first." };
   }
+  if (template.template_type === "uploaded" && !template.uploaded_pdf_path) {
+    return { success: false, error: "This template has no uploaded PDF yet. Upload one in Settings first." };
+  }
 
   const appUrl = resolveAppUrl();
   if (!appUrl.ok) {
@@ -172,22 +180,36 @@ export async function issueCertificate(participantId: string, experienceId: stri
   }
 
   try {
-    const pdfBytes = await generateCertificatePdf({
-      organizationName: template.organization_name,
-      primaryColor: template.primary_color,
-      secondaryColor: template.secondary_color,
-      backgroundColor: template.background_color,
-      fontFamily: template.font_family,
-      titleText: template.title_text,
-      bodyText: template.body_text,
-      footerText: template.footer_text,
-      signatoryName: template.signatory_name,
-      signatoryTitle: template.signatory_title,
-      participantName,
-      experienceTitle: experience.title,
-      completionDate,
-      verificationUrl: `${appUrl.url}/verify/${inserted.verification_code}`,
-    });
+    const pdfBytes =
+      template.template_type === "uploaded"
+        ? await generateCertificateFromUpload({
+            // Non-null: the "uploaded" + missing-path combination already
+            // returned early above, before the certificate row was even
+            // inserted.
+            uploadedPdfPath: template.uploaded_pdf_path!,
+            fieldPlacements: template.field_placements,
+            participantName,
+            experienceTitle: experience.title,
+            organizationName: template.organization_name,
+            completionDate,
+            verificationCode: inserted.verification_code,
+          })
+        : await generateCertificatePdf({
+            organizationName: template.organization_name,
+            primaryColor: template.primary_color,
+            secondaryColor: template.secondary_color,
+            backgroundColor: template.background_color,
+            fontFamily: template.font_family,
+            titleText: template.title_text,
+            bodyText: template.body_text,
+            footerText: template.footer_text,
+            signatoryName: template.signatory_name,
+            signatoryTitle: template.signatory_title,
+            participantName,
+            experienceTitle: experience.title,
+            completionDate,
+            verificationUrl: `${appUrl.url}/verify/${inserted.verification_code}`,
+          });
 
     await uploadCertificatePdf(inserted.verification_code, pdfBytes);
   } catch (error) {
@@ -604,7 +626,7 @@ export async function previewCertificateTemplate(templateId: string): Promise<Pr
   const { data: template, error } = await supabase
     .from("certificate_templates")
     .select(
-      "organization_name, primary_color, secondary_color, background_color, font_family, title_text, body_text, footer_text, signatory_name, signatory_title"
+      "organization_name, primary_color, secondary_color, background_color, font_family, title_text, body_text, footer_text, signatory_name, signatory_title, template_type, uploaded_pdf_path, field_placements"
     )
     .eq("id", templateId)
     .maybeSingle();
@@ -621,6 +643,26 @@ export async function previewCertificateTemplate(templateId: string): Promise<Pr
     return { success: false, error: appUrl.error };
   }
 
+  const sampleDate = new Date().toISOString().slice(0, 10);
+
+  if (template.template_type === "uploaded") {
+    if (!template.uploaded_pdf_path) {
+      return { success: false, error: "Upload a PDF for this template before previewing it." };
+    }
+
+    const pdfBytes = await generateCertificateFromUpload({
+      uploadedPdfPath: template.uploaded_pdf_path,
+      fieldPlacements: template.field_placements,
+      participantName: "Sample Participant",
+      experienceTitle: "Sample Experience Title",
+      organizationName: template.organization_name,
+      completionDate: sampleDate,
+      verificationCode: "PREVIEW-SAMPLE",
+    });
+
+    return { success: true, base64: Buffer.from(pdfBytes).toString("base64") };
+  }
+
   const pdfBytes = await generateCertificatePdf({
     organizationName: template.organization_name,
     primaryColor: template.primary_color,
@@ -634,9 +676,220 @@ export async function previewCertificateTemplate(templateId: string): Promise<Pr
     signatoryTitle: template.signatory_title,
     participantName: "Jordan Sample",
     experienceTitle: "Sample Experience Title",
-    completionDate: new Date().toISOString().slice(0, 10),
+    completionDate: sampleDate,
     verificationUrl: `${appUrl.url}/verify/PREVIEW-SAMPLE`,
   });
 
   return { success: true, base64: Buffer.from(pdfBytes).toString("base64") };
+}
+
+// ---------------------------------------------------------------------------
+// Uploaded template configuration (Sprint 18)
+// ---------------------------------------------------------------------------
+
+export type SetTemplateTypeResult = { success: true } | { success: false; error: string };
+
+export async function setCertificateTemplateType(
+  templateId: string,
+  templateType: CertificateTemplateType
+): Promise<SetTemplateTypeResult> {
+  if (!CERTIFICATE_TEMPLATE_TYPES.includes(templateType)) {
+    return { success: false, error: "Invalid template type." };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("certificate_templates")
+    .update({ template_type: templateType })
+    .eq("id", templateId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath(`/dashboard/settings/certificates/${templateId}/edit`);
+
+  return { success: true };
+}
+
+export type SaveUploadedBasicsResult =
+  | { success: true }
+  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+
+/**
+ * The "uploaded" mode's name/organization form — kept separate from
+ * updateCertificateTemplate (which requires the full generated-layout
+ * field set: colors, fonts, title/body text) rather than making those
+ * fields optional there just to accommodate a mode that doesn't use them.
+ */
+export async function updateUploadedTemplateBasics(
+  templateId: string,
+  _prevState: SaveUploadedBasicsResult | null,
+  formData: FormData
+): Promise<SaveUploadedBasicsResult> {
+  const parsed = uploadedTemplateBasicsSchema.safeParse({
+    name: formData.get("name"),
+    organizationName: formData.get("organizationName"),
+  });
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: "Please correct the highlighted fields.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("certificate_templates")
+    .update({ name: parsed.data.name, organization_name: parsed.data.organizationName })
+    .eq("id", templateId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath(`/dashboard/settings/certificates/${templateId}/edit`);
+  revalidatePath("/dashboard/settings/certificates");
+
+  return { success: true };
+}
+
+export type UploadTemplatePdfResult =
+  | { success: true; path: string; pageWidthPts: number; pageHeightPts: number }
+  | { success: false; error: string };
+
+const MAX_TEMPLATE_PDF_BYTES = 10 * 1024 * 1024;
+
+export async function uploadCertificateTemplatePdf(
+  templateId: string,
+  workspaceId: string,
+  formData: FormData
+): Promise<UploadTemplatePdfResult> {
+  const file = formData.get("file");
+
+  if (!(file instanceof File)) {
+    return { success: false, error: "No file was provided." };
+  }
+  if (file.type !== "application/pdf") {
+    return { success: false, error: "Only PDF files are supported." };
+  }
+  if (file.size > MAX_TEMPLATE_PDF_BYTES) {
+    return { success: false, error: "File must be under 10MB." };
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+
+  let pageWidthPts = 842;
+  let pageHeightPts = 595;
+  try {
+    const pdfDoc = await PDFDocument.load(bytes);
+    const page = pdfDoc.getPages()[0];
+    if (!page) {
+      return { success: false, error: "This PDF has no pages." };
+    }
+    const size = page.getSize();
+    pageWidthPts = Math.round(size.width);
+    pageHeightPts = Math.round(size.height);
+  } catch {
+    return { success: false, error: "Unable to read this file as a PDF." };
+  }
+
+  let path: string;
+  try {
+    path = await uploadTemplatePdf(workspaceId, bytes);
+  } catch (uploadError) {
+    return {
+      success: false,
+      error: uploadError instanceof Error ? uploadError.message : "Unable to upload the PDF.",
+    };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("certificate_templates")
+    .update({
+      uploaded_pdf_path: path,
+      template_type: "uploaded",
+      page_width_pts: pageWidthPts,
+      page_height_pts: pageHeightPts,
+    })
+    .eq("id", templateId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath(`/dashboard/settings/certificates/${templateId}/edit`);
+
+  return { success: true, path, pageWidthPts, pageHeightPts };
+}
+
+export type GetTemplatePreviewUrlResult =
+  | { success: true; url: string; pageWidthPts: number; pageHeightPts: number }
+  | { success: false; error: string };
+
+/**
+ * Thin Server Action wrapper — the client-side pdf.js preview (loaded from
+ * CDN, see features/certificates/lib/pdfjs-loader.ts) needs an actual URL
+ * to fetch, not a Buffer, and the private bucket means that has to be a
+ * signed URL minted server-side rather than a public one.
+ */
+export async function getUploadedTemplatePreviewUrl(templateId: string): Promise<GetTemplatePreviewUrlResult> {
+  const supabase = await createClient();
+
+  const { data: template, error } = await supabase
+    .from("certificate_templates")
+    .select("uploaded_pdf_path, page_width_pts, page_height_pts")
+    .eq("id", templateId)
+    .maybeSingle();
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+  if (!template?.uploaded_pdf_path) {
+    return { success: false, error: "No PDF has been uploaded for this template yet." };
+  }
+
+  try {
+    const url = await getTemplatePdfSignedUrl(template.uploaded_pdf_path);
+    return { success: true, url, pageWidthPts: template.page_width_pts, pageHeightPts: template.page_height_pts };
+  } catch (signError) {
+    return {
+      success: false,
+      error: signError instanceof Error ? signError.message : "Unable to generate a preview link.",
+    };
+  }
+}
+
+export type UpdateFieldPlacementsResult = { success: true } | { success: false; error: string };
+
+export async function updateFieldPlacements(
+  templateId: string,
+  fieldPlacements: FieldPlacements
+): Promise<UpdateFieldPlacementsResult> {
+  const parsed = fieldPlacementsSchema.safeParse(fieldPlacements);
+
+  if (!parsed.success) {
+    return { success: false, error: "Invalid field placement data." };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("certificate_templates")
+    .update({ field_placements: parsed.data })
+    .eq("id", templateId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath(`/dashboard/settings/certificates/${templateId}/edit`);
+
+  return { success: true };
 }

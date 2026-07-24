@@ -7,6 +7,7 @@ import type { CertificateTemplate } from "@/features/certificates/data";
 
 import { PreviewTemplateButton } from "./preview-template-button";
 import { SetDefaultTemplateButton } from "./set-default-template-button";
+import { TemplatePdfThumbnail } from "./template-pdf-thumbnail";
 
 type Props = {
   templates: CertificateTemplate[];
@@ -29,27 +30,39 @@ export function TemplateList({ templates, workspaceId }: Props) {
       {templates.map((template) => (
         <Card key={template.id} className="bg-surface-elevated">
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                {template.name}
-                {template.isDefault && <Badge>Default</Badge>}
-              </CardTitle>
-              <CardDescription>
-                {template.organizationName} · {template.titleText}
-              </CardDescription>
+            <div className="flex items-start gap-3">
+              {template.templateType === "uploaded" && template.uploadedPdfPath && (
+                <TemplatePdfThumbnail templateId={template.id} />
+              )}
+              <div>
+                <CardTitle className="flex flex-wrap items-center gap-2">
+                  {template.name}
+                  {template.isDefault && <Badge>Default</Badge>}
+                  {template.templateType === "uploaded" ? (
+                    <Badge>Uploaded PDF</Badge>
+                  ) : (
+                    <Badge className="bg-violet-600 text-white">Generated</Badge>
+                  )}
+                </CardTitle>
+                <CardDescription>
+                  {template.organizationName} · {template.titleText}
+                </CardDescription>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span
-                className="size-5 rounded-full border border-border-subtle"
-                style={{ backgroundColor: template.primaryColor }}
-                title={`Primary: ${template.primaryColor}`}
-              />
-              <span
-                className="size-5 rounded-full border border-border-subtle"
-                style={{ backgroundColor: template.secondaryColor }}
-                title={`Secondary: ${template.secondaryColor}`}
-              />
-            </div>
+            {template.templateType === "generated" && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className="size-5 rounded-full border border-border-subtle"
+                  style={{ backgroundColor: template.primaryColor }}
+                  title={`Primary: ${template.primaryColor}`}
+                />
+                <span
+                  className="size-5 rounded-full border border-border-subtle"
+                  style={{ backgroundColor: template.secondaryColor }}
+                  title={`Secondary: ${template.secondaryColor}`}
+                />
+              </div>
+            )}
           </CardHeader>
           <CardContent className="flex flex-wrap items-center justify-end gap-2">
             <PreviewTemplateButton templateId={template.id} />
