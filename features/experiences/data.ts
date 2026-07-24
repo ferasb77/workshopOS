@@ -315,7 +315,8 @@ export async function getExperienceParticipants(experienceId: string): Promise<E
     supabase
       .from("survey_tokens")
       .select("participant_id, sent_at, opened_at, completed_at")
-      .eq("workshop_id", experienceId),
+      .eq("workshop_id", experienceId)
+      .eq("survey_type", "satisfaction"),
   ]);
 
   if (participantsResult.error) {

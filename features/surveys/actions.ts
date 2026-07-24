@@ -5,7 +5,12 @@ import { redirect } from "next/navigation";
 
 import { requireEnv } from "@/infrastructure/env";
 import { getResendClient, getResendFromAddress } from "@/infrastructure/email/resend-client";
-import { renderSurveyEmail, renderSurveyReminderEmail } from "@/infrastructure/email/survey-email";
+import {
+  renderPostTrainingSurveyEmail,
+  renderPreTrainingSurveyEmail,
+  renderSurveyEmail,
+  renderSurveyReminderEmail,
+} from "@/infrastructure/email/survey-email";
 import { createClient } from "@/infrastructure/supabase/server";
 import { maybeAutoIssueCertificate } from "@/features/certificates/actions";
 
@@ -14,6 +19,7 @@ import {
   surveyQuestionSchema,
   surveyTemplateSchema,
   type SurveyQuestionFormValues,
+  type SurveyType,
 } from "./schema";
 import { getSurveyTemplate, type SurveyTemplateWithQuestions } from "./data";
 
@@ -30,17 +36,25 @@ export type SubmitSurveyResult =
 type ExperienceContext = { id: string; title: string; slug: string };
 type ParticipantContext = { id: string; first_name: string; email: string };
 
+const SURVEY_EMAIL_RENDERERS: Record<SurveyType, typeof renderSurveyEmail> = {
+  satisfaction: renderSurveyEmail,
+  pre_training: renderPreTrainingSurveyEmail,
+  post_training: renderPostTrainingSurveyEmail,
+};
+
 async function ensureTokenAndSend(
   supabase: SupabaseServerClient,
   participant: ParticipantContext,
   experience: ExperienceContext,
-  appUrl: string
+  appUrl: string,
+  surveyType: SurveyType = "satisfaction"
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const { data: existing, error: findError } = await supabase
     .from("survey_tokens")
     .select("id, token, completed_at")
     .eq("participant_id", participant.id)
     .eq("workshop_id", experience.id)
+    .eq("survey_type", surveyType)
     .maybeSingle();
 
   if (findError) {
@@ -68,6 +82,7 @@ async function ensureTokenAndSend(
       .insert({
         participant_id: participant.id,
         workshop_id: experience.id,
+        survey_type: surveyType,
         sent_at: new Date().toISOString(),
       })
       .select("token")
@@ -84,8 +99,9 @@ async function ensureTokenAndSend(
     return { ok: false, error: "Unable to resolve survey token." };
   }
 
-  const surveyUrl = `${appUrl}/survey/${token}`;
-  const { subject, html } = renderSurveyEmail({
+  const surveyUrl =
+    surveyType === "satisfaction" ? `${appUrl}/survey/${token}` : `${appUrl}/survey/${token}?type=${surveyType}`;
+  const { subject, html } = SURVEY_EMAIL_RENDERERS[surveyType]({
     participantFirstName: participant.first_name,
     experienceTitle: experience.title,
     surveyUrl,
@@ -195,7 +211,8 @@ export async function sendSurveyToAllParticipants(
       supabase
         .from("survey_tokens")
         .select("participant_id")
-        .eq("workshop_id", experienceId),
+        .eq("workshop_id", experienceId)
+        .eq("survey_type", "satisfaction"),
     ]);
 
   if (participantsError) {
@@ -343,7 +360,8 @@ export async function sendToNonResponders(
       supabase
         .from("survey_tokens")
         .select("participant_id, completed_at")
-        .eq("workshop_id", workshopId),
+        .eq("workshop_id", workshopId)
+        .eq("survey_type", "satisfaction"),
     ]);
 
   if (participantsError) {
@@ -589,6 +607,7 @@ export async function downloadSurveyResults(experienceId: string): Promise<strin
       "participant_id, content_rating, facilitator_rating, logistics_rating, overall_rating, highlights, improvements, additional_comments, submitted_at"
     )
     .eq("workshop_id", experienceId)
+    .eq("survey_type", "satisfaction")
     .order("submitted_at", { ascending: false });
 
   if (error) {
@@ -645,6 +664,7 @@ export async function createSurveyTemplate(
   const parsed = surveyTemplateSchema.safeParse({
     name: formData.get("name"),
     description: formData.get("description"),
+    surveyType: formData.get("surveyType") || undefined,
   });
 
   if (!parsed.success) {
@@ -659,7 +679,12 @@ export async function createSurveyTemplate(
 
   const { data: inserted, error } = await supabase
     .from("survey_templates")
-    .insert({ workspace_id: workspaceId, name: parsed.data.name, description: parsed.data.description ?? null })
+    .insert({
+      workspace_id: workspaceId,
+      name: parsed.data.name,
+      description: parsed.data.description ?? null,
+      survey_type: parsed.data.surveyType,
+    })
     .select("id")
     .single();
 
@@ -679,6 +704,7 @@ export async function updateSurveyTemplate(
   const parsed = surveyTemplateSchema.safeParse({
     name: formData.get("name"),
     description: formData.get("description"),
+    surveyType: formData.get("surveyType") || undefined,
   });
 
   if (!parsed.success) {
@@ -696,6 +722,7 @@ export async function updateSurveyTemplate(
     .update({
       name: parsed.data.name,
       description: parsed.data.description ?? null,
+      survey_type: parsed.data.surveyType,
       updated_at: new Date().toISOString(),
     })
     .eq("id", templateId);
@@ -746,10 +773,26 @@ export async function setDefaultSurveyTemplate(
 ): Promise<SetDefaultSurveyTemplateResult> {
   const supabase = await createClient();
 
+  // "Default" is scoped per survey_type — setting a new pre-training
+  // default must not clear the satisfaction (or post-training) default.
+  const { data: template, error: templateError } = await supabase
+    .from("survey_templates")
+    .select("survey_type")
+    .eq("id", templateId)
+    .maybeSingle();
+
+  if (templateError) {
+    return { success: false, error: templateError.message };
+  }
+  if (!template) {
+    return { success: false, error: "Template not found." };
+  }
+
   const { error: clearError } = await supabase
     .from("survey_templates")
     .update({ is_default: false })
     .eq("workspace_id", workspaceId)
+    .eq("survey_type", template.survey_type)
     .neq("id", templateId);
 
   if (clearError) {
@@ -917,20 +960,26 @@ export type AssignExperienceSurveyTemplateResult = { success: true } | { success
 export async function assignExperienceSurveyTemplate(
   experienceId: string,
   experienceSlug: string,
-  templateId: string | null
+  templateId: string | null,
+  surveyType: SurveyType = "satisfaction"
 ): Promise<AssignExperienceSurveyTemplateResult> {
   const supabase = await createClient();
 
   if (templateId === null) {
-    const { error } = await supabase.from("experience_survey_templates").delete().eq("experience_id", experienceId);
+    const { error } = await supabase
+      .from("experience_survey_templates")
+      .delete()
+      .eq("experience_id", experienceId)
+      .eq("survey_type", surveyType);
 
     if (error) {
       return { success: false, error: error.message };
     }
   } else {
-    const { error } = await supabase
-      .from("experience_survey_templates")
-      .upsert({ experience_id: experienceId, template_id: templateId }, { onConflict: "experience_id" });
+    const { error } = await supabase.from("experience_survey_templates").upsert(
+      { experience_id: experienceId, survey_type: surveyType, template_id: templateId },
+      { onConflict: "experience_id,survey_type" }
+    );
 
     if (error) {
       return { success: false, error: error.message };
@@ -999,4 +1048,255 @@ export async function submitCustomSurveyResponse(
  */
 export async function getTemplateForPreview(templateId: string): Promise<SurveyTemplateWithQuestions | null> {
   return getSurveyTemplate(templateId);
+}
+
+// ---------------------------------------------------------------------------
+// Pre/post survey configuration — Sprint 19
+// ---------------------------------------------------------------------------
+
+export type SaveExperienceSurveyConfigResult = { success: true } | { success: false; error: string };
+
+type SurveyTypeConfigInput = { enabled: boolean; templateId: string | null; autoSend: boolean };
+
+/**
+ * Saves both the pre-training and post-training sections of the Surveys
+ * tab in one call. "Enabled" has no dedicated column — it's the presence
+ * (upsert) or absence (delete) of the (experience, type) row, mirroring the
+ * existing satisfaction-override pattern in assignExperienceSurveyTemplate.
+ */
+export async function saveExperienceSurveyConfig(
+  experienceId: string,
+  experienceSlug: string,
+  config: { preTraining: SurveyTypeConfigInput; postTraining: SurveyTypeConfigInput }
+): Promise<SaveExperienceSurveyConfigResult> {
+  const supabase = await createClient();
+
+  const sections: [SurveyType, SurveyTypeConfigInput][] = [
+    ["pre_training", config.preTraining],
+    ["post_training", config.postTraining],
+  ];
+
+  for (const [surveyType, section] of sections) {
+    if (!section.enabled || !section.templateId) {
+      const { error } = await supabase
+        .from("experience_survey_templates")
+        .delete()
+        .eq("experience_id", experienceId)
+        .eq("survey_type", surveyType);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      continue;
+    }
+
+    const { error } = await supabase.from("experience_survey_templates").upsert(
+      {
+        experience_id: experienceId,
+        survey_type: surveyType,
+        template_id: section.templateId,
+        auto_send: section.autoSend,
+      },
+      { onConflict: "experience_id,survey_type" }
+    );
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  revalidatePath(`/dashboard/experiences/${experienceSlug}`);
+
+  return { success: true };
+}
+
+/**
+ * Send the configured pre/post-training survey to every participant who
+ * doesn't already have a token for it — the manual "Send to all now"
+ * buttons in each config section. Mirrors sendSurveyToAllParticipants'
+ * "skip anyone already sent" semantics.
+ */
+async function sendTypedSurveyToAll(
+  experienceId: string,
+  experienceSlug: string,
+  surveyType: "pre_training" | "post_training"
+): Promise<SendSurveyResult> {
+  const appUrl = resolveAppUrl();
+  if (!appUrl.ok) {
+    return { success: false, error: appUrl.error };
+  }
+
+  const supabase = await createClient();
+
+  const [{ data: experience, error: experienceError }, { data: config, error: configError }] = await Promise.all([
+    supabase.from("experiences").select("id, title, slug").eq("id", experienceId).maybeSingle(),
+    supabase
+      .from("experience_survey_templates")
+      .select("template_id")
+      .eq("experience_id", experienceId)
+      .eq("survey_type", surveyType)
+      .maybeSingle(),
+  ]);
+
+  if (experienceError) {
+    return { success: false, error: experienceError.message };
+  }
+  if (!experience) {
+    return { success: false, error: "Experience not found." };
+  }
+  if (configError) {
+    return { success: false, error: configError.message };
+  }
+  if (!config) {
+    return { success: false, error: "This survey type isn't configured for this experience yet." };
+  }
+
+  const [{ data: participants, error: participantsError }, { data: tokens, error: tokensError }] =
+    await Promise.all([
+      supabase.from("participants").select("id, first_name, email").eq("workshop_slug", experience.slug),
+      supabase
+        .from("survey_tokens")
+        .select("participant_id")
+        .eq("workshop_id", experienceId)
+        .eq("survey_type", surveyType),
+    ]);
+
+  if (participantsError) {
+    return { success: false, error: participantsError.message };
+  }
+  if (tokensError) {
+    return { success: false, error: tokensError.message };
+  }
+
+  const participantIdsWithTokens = new Set((tokens ?? []).map((token) => token.participant_id));
+  const targets = (participants ?? []).filter((participant) => !participantIdsWithTokens.has(participant.id));
+
+  const errors: string[] = [];
+  let sent = 0;
+  let failed = 0;
+
+  for (const participant of targets) {
+    const result = await ensureTokenAndSend(supabase, participant, experience, appUrl.url, surveyType);
+
+    if (result.ok) {
+      sent += 1;
+    } else {
+      failed += 1;
+      errors.push(`${participant.first_name}: ${result.error}`);
+    }
+  }
+
+  revalidatePath(`/dashboard/experiences/${experienceSlug}`);
+
+  return {
+    success: true,
+    sent,
+    skipped: (participants?.length ?? 0) - targets.length,
+    failed,
+    errors,
+  };
+}
+
+export async function sendPreTrainingSurveyToAll(experienceId: string, experienceSlug: string): Promise<SendSurveyResult> {
+  return sendTypedSurveyToAll(experienceId, experienceSlug, "pre_training");
+}
+
+export async function sendPostTrainingSurveyToAll(experienceId: string, experienceSlug: string): Promise<SendSurveyResult> {
+  return sendTypedSurveyToAll(experienceId, experienceSlug, "post_training");
+}
+
+// ---------------------------------------------------------------------------
+// Auto-send hooks — called fire-and-forget from other features'
+// Server Actions (participant registration, experience status update).
+// Each swallows its own errors the same way maybeAutoIssueCertificate
+// does: a survey-send hiccup must never surface as a failure in the action
+// that triggered it.
+// ---------------------------------------------------------------------------
+
+export async function sendPreTrainingSurveyOnRegistration(participantId: string, experienceId: string): Promise<void> {
+  try {
+    const supabase = await createClient();
+
+    const { data: config } = await supabase
+      .from("experience_survey_templates")
+      .select("template_id, auto_send")
+      .eq("experience_id", experienceId)
+      .eq("survey_type", "pre_training")
+      .maybeSingle();
+
+    if (!config || !config.auto_send) {
+      return;
+    }
+
+    const appUrl = resolveAppUrl();
+    if (!appUrl.ok) {
+      console.error("Pre-training auto-send failed: missing app URL configuration");
+      return;
+    }
+
+    const [{ data: participant }, { data: experience }] = await Promise.all([
+      supabase.from("participants").select("id, first_name, email").eq("id", participantId).maybeSingle(),
+      supabase.from("experiences").select("id, title, slug").eq("id", experienceId).maybeSingle(),
+    ]);
+
+    if (!participant || !experience) {
+      return;
+    }
+
+    const result = await ensureTokenAndSend(supabase, participant, experience, appUrl.url, "pre_training");
+
+    if (!result.ok) {
+      console.error("Pre-training auto-send failed", { participantId, experienceId, error: result.error });
+    }
+  } catch (error) {
+    console.error("Pre-training auto-send failed", { participantId, experienceId, error });
+  }
+}
+
+export async function sendPostTrainingSurveysOnCompletion(experienceId: string): Promise<void> {
+  try {
+    const supabase = await createClient();
+
+    const { data: config } = await supabase
+      .from("experience_survey_templates")
+      .select("template_id, auto_send")
+      .eq("experience_id", experienceId)
+      .eq("survey_type", "post_training")
+      .maybeSingle();
+
+    if (!config || !config.auto_send) {
+      return;
+    }
+
+    const appUrl = resolveAppUrl();
+    if (!appUrl.ok) {
+      console.error("Post-training auto-send failed: missing app URL configuration");
+      return;
+    }
+
+    const { data: experience } = await supabase
+      .from("experiences")
+      .select("id, title, slug")
+      .eq("id", experienceId)
+      .maybeSingle();
+
+    if (!experience) {
+      return;
+    }
+
+    const { data: participants } = await supabase
+      .from("participants")
+      .select("id, first_name, email")
+      .eq("workshop_slug", experience.slug);
+
+    for (const participant of participants ?? []) {
+      const result = await ensureTokenAndSend(supabase, participant, experience, appUrl.url, "post_training");
+
+      if (!result.ok) {
+        console.error("Post-training auto-send failed for participant", { participantId: participant.id, error: result.error });
+      }
+    }
+  } catch (error) {
+    console.error("Post-training auto-send failed", { experienceId, error });
+  }
 }

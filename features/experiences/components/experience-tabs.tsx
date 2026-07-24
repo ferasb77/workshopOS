@@ -7,6 +7,7 @@ export const EXPERIENCE_TABS = [
   { key: "survey", label: "Survey Results" },
   { key: "logistics", label: "Logistics" },
   { key: "surveys", label: "Surveys" },
+  { key: "impact", label: "Learning Impact" },
   { key: "certificates", label: "Certificates" },
 ] as const;
 

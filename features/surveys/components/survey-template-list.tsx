@@ -3,11 +3,23 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import type { SurveyTemplateSummary } from "@/features/surveys/data";
+import { SURVEY_TYPE_LABELS, type SurveyType } from "@/features/surveys/schema";
 
 import { DeleteSurveyTemplateDialog } from "./delete-survey-template-dialog";
 import { PreviewSurveyTemplateButton } from "./preview-survey-template-button";
 import { SetDefaultSurveyTemplateButton } from "./set-default-survey-template-button";
+
+const SURVEY_TYPE_BADGE_CLASS: Record<SurveyType, string> = {
+  satisfaction: "bg-gold text-night",
+  pre_training: "bg-blue-600 text-white",
+  post_training: "bg-emerald-600 text-white",
+};
+
+function SurveyTypeBadge({ surveyType }: { surveyType: SurveyType }) {
+  return <Badge className={cn(SURVEY_TYPE_BADGE_CLASS[surveyType])}>{SURVEY_TYPE_LABELS[surveyType]}</Badge>;
+}
 
 type Props = {
   templates: SurveyTemplateSummary[];
@@ -31,9 +43,10 @@ export function SurveyTemplateList({ templates, workspaceId }: Props) {
         <Card key={template.id} className="bg-surface-elevated">
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex flex-wrap items-center gap-2">
                 {template.name}
-                {template.isDefault && <Badge>Default</Badge>}
+                {template.isDefault && <Badge variant="outline">Default</Badge>}
+                <SurveyTypeBadge surveyType={template.surveyType} />
               </CardTitle>
               <CardDescription>
                 {template.questionCount} question{template.questionCount === 1 ? "" : "s"}

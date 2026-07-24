@@ -218,7 +218,11 @@ export async function getClientRelationshipHistory(clientId: string): Promise<Cl
   const [{ data: participantRows, error: participantsError }, { data: responseRows, error: responsesError }] =
     await Promise.all([
       supabase.from("participants").select("id").in("workshop_slug", slugs),
-      supabase.from("survey_responses").select("overall_rating").in("workshop_id", experienceIds),
+      supabase
+        .from("survey_responses")
+        .select("overall_rating")
+        .in("workshop_id", experienceIds)
+        .eq("survey_type", "satisfaction"),
     ]);
 
   if (participantsError) {

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import type {
+  ExperienceSurveyConfig,
   ExperienceSurveyTemplateResolution,
   SurveyManagementData,
   SurveyParticipantRow,
@@ -26,11 +27,15 @@ import type {
 import { SendAllSurveysButton } from "./send-all-surveys-button";
 import { SendSurveyButton } from "./send-survey-button";
 import { SendReminderButton } from "./send-reminder-button";
+import { SendPreSurveyAllButton } from "./send-pre-survey-all-button";
+import { SendPostSurveyAllButton } from "./send-post-survey-all-button";
 import { ResendNonRespondersButton } from "./resend-non-responders-button";
 import { DownloadSurveyResultsButton } from "./download-survey-results-button";
 import { SurveyResponseModal } from "./survey-response-modal";
 import { SurveyStatusBadge } from "./survey-status-badge";
 import { SurveyTemplateSelector } from "./survey-template-selector";
+import { PrePostStatusBadge } from "./pre-post-status-badge";
+import { PrePostSurveyConfig } from "./pre-post-survey-config";
 
 const REMINDER_ELIGIBLE_HOURS = 48;
 
@@ -121,19 +126,32 @@ type Props = {
   data: SurveyManagementData;
   templates: SurveyTemplateSummary[];
   templateResolution: ExperienceSurveyTemplateResolution;
+  surveyConfig: ExperienceSurveyConfig;
 };
 
-export function SurveyTab({ data, templates, templateResolution }: Props) {
+export function SurveyTab({ data, templates, templateResolution, surveyConfig }: Props) {
   const nonResponderCount = data.rows.filter(
     (row) => row.status === "sent"
   ).length;
 
+  const satisfactionTemplates = templates.filter((template) => template.surveyType === "satisfaction");
+  const preTemplates = templates.filter((template) => template.surveyType === "pre_training");
+  const postTemplates = templates.filter((template) => template.surveyType === "post_training");
+
   return (
     <div className="space-y-6">
+      <PrePostSurveyConfig
+        experienceId={data.experienceId}
+        experienceSlug={data.experienceSlug}
+        preTemplates={preTemplates}
+        postTemplates={postTemplates}
+        initialConfig={surveyConfig}
+      />
+
       <SurveyTemplateSelector
         experienceId={data.experienceId}
         experienceSlug={data.experienceSlug}
-        templates={templates}
+        templates={satisfactionTemplates}
         activeSource={templateResolution.source}
         activeTemplateName={templateResolution.template?.name ?? null}
         overrideTemplateId={templateResolution.source === "override" ? templateResolution.template?.id ?? null : null}
@@ -160,6 +178,12 @@ export function SurveyTab({ data, templates, templateResolution }: Props) {
       </div>
 
       <div className="flex flex-wrap items-start gap-3">
+        {data.preConfigured && (
+          <SendPreSurveyAllButton experienceId={data.experienceId} experienceSlug={data.experienceSlug} />
+        )}
+        {data.postConfigured && (
+          <SendPostSurveyAllButton experienceId={data.experienceId} experienceSlug={data.experienceSlug} />
+        )}
         <SendAllSurveysButton
           experienceId={data.experienceId}
           experienceSlug={data.experienceSlug}
@@ -190,7 +214,9 @@ export function SurveyTab({ data, templates, templateResolution }: Props) {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Company</TableHead>
-                      <TableHead>Survey Status</TableHead>
+                      <TableHead>Pre-Survey</TableHead>
+                      <TableHead>Post-Survey</TableHead>
+                      <TableHead>Satisfaction</TableHead>
                       <TableHead>Overall Score</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -200,6 +226,12 @@ export function SurveyTab({ data, templates, templateResolution }: Props) {
                       <TableRow key={row.participantId}>
                         <TableCell className="font-medium">{row.fullName}</TableCell>
                         <TableCell className="text-muted-foreground">{row.company ?? "—"}</TableCell>
+                        <TableCell>
+                          <PrePostStatusBadge status={row.preSurveyStatus} />
+                        </TableCell>
+                        <TableCell>
+                          <PrePostStatusBadge status={row.postSurveyStatus} />
+                        </TableCell>
                         <TableCell>
                           <StatusCell row={row} />
                         </TableCell>
@@ -231,7 +263,9 @@ export function SurveyTab({ data, templates, templateResolution }: Props) {
                       <OverallScore row={row} />
                     </div>
                     {row.company && <p className="mt-1 text-sm text-muted-foreground">{row.company}</p>}
-                    <div className="mt-2">
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <PrePostStatusBadge status={row.preSurveyStatus} />
+                      <PrePostStatusBadge status={row.postSurveyStatus} />
                       <StatusCell row={row} />
                     </div>
                     <div className="mt-3">

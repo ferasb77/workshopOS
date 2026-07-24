@@ -109,6 +109,7 @@ export async function issueCertificate(participantId: string, experienceId: stri
         .select("completed_at")
         .eq("participant_id", participantId)
         .eq("workshop_id", experienceId)
+        .eq("survey_type", "satisfaction")
         .maybeSingle(),
       supabase
         .from("experience_completion_criteria")

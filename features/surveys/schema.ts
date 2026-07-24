@@ -36,6 +36,20 @@ export const surveyResponseSchema = z.object({
 export type SurveyResponseInput = z.infer<typeof surveyResponseSchema>;
 
 // ---------------------------------------------------------------------------
+// Survey type — which stage of the experience a template/token belongs to
+// ---------------------------------------------------------------------------
+
+export const SURVEY_TYPES = ["satisfaction", "pre_training", "post_training"] as const;
+
+export type SurveyType = (typeof SURVEY_TYPES)[number];
+
+export const SURVEY_TYPE_LABELS: Record<SurveyType, string> = {
+  satisfaction: "Satisfaction Survey",
+  pre_training: "Pre-Training Survey",
+  post_training: "Post-Training Survey",
+};
+
+// ---------------------------------------------------------------------------
 // Custom survey builder
 // ---------------------------------------------------------------------------
 
@@ -71,6 +85,7 @@ function emptyToUndefined(value: unknown) {
 export const surveyTemplateSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
   description: z.preprocess(emptyToUndefined, z.string().trim().optional()),
+  surveyType: z.enum(SURVEY_TYPES).default("satisfaction"),
 });
 
 export type SurveyTemplateFormValues = z.infer<typeof surveyTemplateSchema>;

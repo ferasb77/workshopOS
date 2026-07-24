@@ -63,7 +63,7 @@ export async function getAllFacilitators(): Promise<FacilitatorSummary[]> {
       .select("id, facilitator_email")
       .not("facilitator_email", "is", null)
       .is("deleted_at", null),
-    supabase.from("survey_responses").select("workshop_id, overall_rating"),
+    supabase.from("survey_responses").select("workshop_id, overall_rating").eq("survey_type", "satisfaction"),
   ]);
 
   if (facilitatorsResult.error) {
@@ -279,7 +279,11 @@ export async function getFacilitatorDeliveryHistory(
 
   const [participantsResult, responsesResult] = await Promise.all([
     supabase.from("participants").select("workshop_slug").in("workshop_slug", slugs),
-    supabase.from("survey_responses").select("workshop_id, overall_rating").in("workshop_id", workshopIds),
+    supabase
+      .from("survey_responses")
+      .select("workshop_id, overall_rating")
+      .in("workshop_id", workshopIds)
+      .eq("survey_type", "satisfaction"),
   ]);
 
   if (participantsResult.error) {

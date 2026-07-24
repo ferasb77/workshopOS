@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/infrastructure/supabase/server";
 import type { ExperienceStatus } from "@/infrastructure/repositories/dashboard";
+import { sendPostTrainingSurveysOnCompletion } from "@/features/surveys/actions";
 
 import { createExperienceSchema, updateExperienceSchema, EXPERIENCE_STATUS_TRANSITIONS } from "./schema";
 
@@ -303,6 +304,17 @@ export async function updateExperience(
       error: "Unable to save changes. Please try again.",
       values,
     };
+  }
+
+  // currentStatus is never "completed" here (the early return above already
+  // locked out further edits once it is), so reaching "completed" always
+  // means this update is the transition into it.
+  //
+  // Fire-and-forget, same reasoning as the check-in flow's certificate/
+  // pre-training-survey hooks: a survey-send hiccup must never block or
+  // fail the status update itself.
+  if (data.status === "completed") {
+    void sendPostTrainingSurveysOnCompletion(experienceId);
   }
 
   revalidatePath(`/dashboard/experiences/${experienceSlug}`);

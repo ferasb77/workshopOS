@@ -6,6 +6,7 @@ import { createClient } from "@/infrastructure/supabase/server";
 import { fetchFilteredParticipants } from "./data";
 import type { ParticipantFilters, ParticipantSurveyStatus } from "./data";
 import { maybeAutoIssueCertificate } from "@/features/certificates/actions";
+import { sendPreTrainingSurveyOnRegistration } from "@/features/surveys/actions";
 
 export async function checkInParticipant(
   _: CheckInResult | null,
@@ -90,6 +91,7 @@ export async function checkInParticipant(
 
     if (experienceRow) {
       void maybeAutoIssueCertificate(insertedParticipant.id, experienceRow.id);
+      void sendPreTrainingSurveyOnRegistration(insertedParticipant.id, experienceRow.id);
     }
   }
 

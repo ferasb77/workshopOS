@@ -4,9 +4,29 @@ import { useState, useTransition, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 
+import type { SurveyType } from "@/features/surveys/schema";
+
 import { submitCustomSurveyResponse, type CustomSurveyAnswerInput } from "../actions";
 import { QuestionRenderer, type AnswerValue, type PublicSurveyQuestion } from "./question-renderer";
 import { SurveyThankYou } from "./survey-thank-you";
+
+const HEADING_COPY: Record<
+  SurveyType,
+  { heading: (name: string, title: string) => string; subtitle: (name: string) => string }
+> = {
+  satisfaction: {
+    heading: (name, title) => `Hi ${name}, thank you for attending ${title}`,
+    subtitle: () => "Your feedback takes a couple of minutes and helps us improve every future experience.",
+  },
+  pre_training: {
+    heading: (name, title) => `Before ${title}`,
+    subtitle: (name) => `Hi ${name}, this short survey helps us understand your starting point.`,
+  },
+  post_training: {
+    heading: (name, title) => `After ${title}`,
+    subtitle: (name) => `Hi ${name}, tell us what you learned and how you'll apply it.`,
+  },
+};
 
 function isAnswered(question: PublicSurveyQuestion, value: AnswerValue): boolean {
   if (value === undefined) {
@@ -39,9 +59,16 @@ type Props = {
   participantFirstName: string;
   experienceTitle: string;
   questions: PublicSurveyQuestion[];
+  surveyType?: SurveyType;
 };
 
-export function CustomSurveyForm({ token, participantFirstName, experienceTitle, questions }: Props) {
+export function CustomSurveyForm({
+  token,
+  participantFirstName,
+  experienceTitle,
+  questions,
+  surveyType = "satisfaction",
+}: Props) {
   const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -49,8 +76,10 @@ export function CustomSurveyForm({ token, participantFirstName, experienceTitle,
   const [isPending, startTransition] = useTransition();
 
   if (submitted) {
-    return <SurveyThankYou />;
+    return <SurveyThankYou surveyType={surveyType} />;
   }
+
+  const copy = HEADING_COPY[surveyType];
 
   function handleAnswerChange(questionId: string, value: AnswerValue) {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
@@ -100,11 +129,9 @@ export function CustomSurveyForm({ token, participantFirstName, experienceTitle,
     <form onSubmit={handleSubmit} className="space-y-8">
       <div>
         <h1 className="font-heading text-2xl font-semibold text-ivory sm:text-3xl">
-          Hi {participantFirstName}, thank you for attending {experienceTitle}
+          {copy.heading(participantFirstName, experienceTitle)}
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Your feedback takes a couple of minutes and helps us improve every future experience.
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">{copy.subtitle(participantFirstName)}</p>
       </div>
 
       <div className="space-y-8">

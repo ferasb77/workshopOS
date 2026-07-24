@@ -115,7 +115,7 @@ export async function getDashboardData(): Promise<DashboardData> {
           "id, workshop_slug, first_name, last_name, company, job_title, checked_in, created_at"
         )
         .order("created_at", { ascending: false }),
-      supabase.from("survey_tokens").select("workshop_id, participant_id"),
+      supabase.from("survey_tokens").select("workshop_id, participant_id").eq("survey_type", "satisfaction"),
       supabase.from("clients").select("id", { count: "exact", head: true }).is("deleted_at", null),
       supabase.from("engagements").select("id, title, status").is("deleted_at", null),
     ]);

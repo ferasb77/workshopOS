@@ -7,8 +7,11 @@ import { ExperienceStatusBadge } from "@/features/dashboard/components/experienc
 import { SurveyResultsPanel } from "@/features/surveys/components/survey-results-panel";
 import { CustomSurveyResultsPanel } from "@/features/surveys/components/custom-survey-results-panel";
 import { SurveyTab } from "@/features/surveys/components/survey-tab";
+import { LearningImpactTab } from "@/features/surveys/components/learning-impact-tab";
 import {
+  getExperienceSurveyConfig,
   getExperienceSurveyTemplate,
+  getPrePostComparisonData,
   getSurveyManagementData,
   getSurveyResultsByTemplate,
   getSurveyTemplates,
@@ -87,14 +90,17 @@ export default async function ExperienceDetailPage({ params, searchParams }: Pro
     activeTab === "surveys"
       ? await (async () => {
           const session = await getSessionContext();
-          const [managementData, templates, templateResolution] = await Promise.all([
+          const [managementData, templates, templateResolution, surveyConfig] = await Promise.all([
             getSurveyManagementData(experience.id),
             getSurveyTemplates(session.workspaceId),
-            getExperienceSurveyTemplate(experience.id),
+            getExperienceSurveyTemplate(experience.id, "satisfaction"),
+            getExperienceSurveyConfig(experience.id),
           ]);
-          return { managementData, templates, templateResolution };
+          return { managementData, templates, templateResolution, surveyConfig };
         })()
       : null;
+
+  const impactData = activeTab === "impact" ? await getPrePostComparisonData(experience.id) : null;
 
   const certificatesData =
     activeTab === "certificates"
@@ -241,7 +247,12 @@ export default async function ExperienceDetailPage({ params, searchParams }: Pro
           data={surveysTabData.managementData}
           templates={surveysTabData.templates}
           templateResolution={surveysTabData.templateResolution}
+          surveyConfig={surveysTabData.surveyConfig}
         />
+      )}
+
+      {activeTab === "impact" && impactData && (
+        <LearningImpactTab data={impactData} experienceSlug={experience.slug} />
       )}
 
       {activeTab === "certificates" && certificatesData && (

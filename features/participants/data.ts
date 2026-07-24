@@ -204,7 +204,8 @@ async function fetchSurveyTokensByParticipantId(
   const { data, error } = await supabase
     .from("survey_tokens")
     .select("participant_id, sent_at, completed_at")
-    .in("participant_id", participantIds);
+    .in("participant_id", participantIds)
+    .eq("survey_type", "satisfaction");
 
   if (error) {
     throw new Error(error.message);
@@ -371,7 +372,8 @@ export async function getParticipantById(anchorId: string): Promise<ParticipantD
   const { data: responseRows, error: responseError } = await supabase
     .from("survey_responses")
     .select("participant_id, overall_rating")
-    .in("participant_id", participantIds);
+    .in("participant_id", participantIds)
+    .eq("survey_type", "satisfaction");
 
   if (responseError) {
     throw new Error(responseError.message);
@@ -453,6 +455,7 @@ export async function getParticipantSurveyHistory(
       "id, workshop_id, content_rating, facilitator_rating, logistics_rating, overall_rating, highlights, improvements, additional_comments, submitted_at"
     )
     .in("participant_id", participantIds)
+    .eq("survey_type", "satisfaction")
     .order("submitted_at", { ascending: false });
 
   if (responseError) {
