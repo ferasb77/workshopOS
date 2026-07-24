@@ -1,5 +1,7 @@
 import { SurveyForm } from "@/features/surveys/components/survey-form";
+import { CustomSurveyForm } from "@/features/surveys/components/custom-survey-form";
 import { SurveyThankYou } from "@/features/surveys/components/survey-thank-you";
+import type { PublicSurveyQuestion } from "@/features/surveys/components/question-renderer";
 import { createClient } from "@/infrastructure/supabase/server";
 
 type SurveyContextRow = {
@@ -8,6 +10,8 @@ type SurveyContextRow = {
   is_completed: boolean;
   participant_first_name: string | null;
   experience_title: string | null;
+  template_id: string | null;
+  template_questions: PublicSurveyQuestion[] | null;
 };
 
 type Props = {
@@ -31,6 +35,13 @@ export default async function SurveyPage({ params }: Props) {
           <div className="rounded-2xl border border-border-subtle bg-surface p-6 sm:p-10">
             {context.is_completed ? (
               <SurveyThankYou />
+            ) : context.template_questions && context.template_questions.length > 0 ? (
+              <CustomSurveyForm
+                token={token}
+                participantFirstName={context.participant_first_name ?? "there"}
+                experienceTitle={context.experience_title ?? "the experience"}
+                questions={context.template_questions}
+              />
             ) : (
               <SurveyForm
                 token={token}

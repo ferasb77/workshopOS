@@ -5,8 +5,14 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ExperienceStatusBadge } from "@/features/dashboard/components/experience-status-badge";
 import { SurveyResultsPanel } from "@/features/surveys/components/survey-results-panel";
+import { CustomSurveyResultsPanel } from "@/features/surveys/components/custom-survey-results-panel";
 import { SurveyTab } from "@/features/surveys/components/survey-tab";
-import { getSurveyManagementData } from "@/features/surveys/data";
+import {
+  getExperienceSurveyTemplate,
+  getSurveyManagementData,
+  getSurveyResultsByTemplate,
+  getSurveyTemplates,
+} from "@/features/surveys/data";
 import { CertificatesTab } from "@/features/certificates/components/certificates-tab";
 import {
   getCertificateTemplates,
@@ -64,10 +70,31 @@ export default async function ExperienceDetailPage({ params, searchParams }: Pro
 
   const surveyResults =
     activeTab === "survey" ? await getExperienceSurveyResults(experience.id) : null;
+  const customSurveyResults =
+    activeTab === "survey"
+      ? await (async () => {
+          const resolution = await getExperienceSurveyTemplate(experience.id);
+          if (!resolution.template) {
+            return null;
+          }
+          return getSurveyResultsByTemplate(experience.id, resolution.template.id);
+        })()
+      : null;
   const logisticsGroups =
     activeTab === "logistics" ? await getExperienceLogisticsTasks(experience.id) : null;
-  const surveyManagementData =
-    activeTab === "surveys" ? await getSurveyManagementData(experience.id) : null;
+
+  const surveysTabData =
+    activeTab === "surveys"
+      ? await (async () => {
+          const session = await getSessionContext();
+          const [managementData, templates, templateResolution] = await Promise.all([
+            getSurveyManagementData(experience.id),
+            getSurveyTemplates(session.workspaceId),
+            getExperienceSurveyTemplate(experience.id),
+          ]);
+          return { managementData, templates, templateResolution };
+        })()
+      : null;
 
   const certificatesData =
     activeTab === "certificates"
@@ -173,22 +200,49 @@ export default async function ExperienceDetailPage({ params, searchParams }: Pro
       )}
 
       {activeTab === "survey" && surveyResults && (
-        <SurveyResultsPanel
-          experienceId={experience.id}
-          experienceSlug={experience.slug}
-          experienceTitle={experience.title}
-          participantsCount={participants.length}
-          unsentCount={unsentSurveyCount}
-          averages={surveyResults.averages}
-          responses={surveyResults.responses}
-        />
+        <div className="space-y-6">
+          {customSurveyResults ? (
+            <CustomSurveyResultsPanel results={customSurveyResults} />
+          ) : (
+            <SurveyResultsPanel
+              experienceId={experience.id}
+              experienceSlug={experience.slug}
+              experienceTitle={experience.title}
+              participantsCount={participants.length}
+              unsentCount={unsentSurveyCount}
+              averages={surveyResults.averages}
+              responses={surveyResults.responses}
+            />
+          )}
+
+          {customSurveyResults && surveyResults.responses.length > 0 && (
+            <div>
+              <h2 className="mb-3 text-lg font-semibold text-ivory">Historical Responses (Legacy Format)</h2>
+              <SurveyResultsPanel
+                experienceId={experience.id}
+                experienceSlug={experience.slug}
+                experienceTitle={experience.title}
+                participantsCount={participants.length}
+                unsentCount={unsentSurveyCount}
+                averages={surveyResults.averages}
+                responses={surveyResults.responses}
+              />
+            </div>
+          )}
+        </div>
       )}
 
       {activeTab === "logistics" && logisticsGroups && (
         <LogisticsTab experienceSlug={experience.slug} isLocked={isLocked} groups={logisticsGroups} />
       )}
 
-      {activeTab === "surveys" && surveyManagementData && <SurveyTab data={surveyManagementData} />}
+      {activeTab === "surveys" && surveysTabData && surveysTabData.managementData && (
+        <SurveyTab
+          data={surveysTabData.managementData}
+          templates={surveysTabData.templates}
+          templateResolution={surveysTabData.templateResolution}
+        />
+      )}
 
       {activeTab === "certificates" && certificatesData && (
         <CertificatesTab

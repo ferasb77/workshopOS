@@ -100,6 +100,13 @@ export function CompletionCriteriaForm({ experienceId, criteria, templates }: Pr
             <Select
               value={certificateTemplateId || "default"}
               onValueChange={(value) => setCertificateTemplateId(!value || value === "default" ? "" : value)}
+              items={[
+                { value: "default", label: "Workspace default" },
+                ...templates.map((template) => ({
+                  value: template.id,
+                  label: `${template.name}${template.isDefault ? " (default)" : ""}`,
+                })),
+              ]}
             >
               <SelectTrigger id="certificate-template" className="w-full">
                 <SelectValue placeholder="Workspace default" />

@@ -420,6 +420,13 @@ export async function getExperienceSurveyResults(experienceId: string): Promise<
           "id, participant_id, content_rating, facilitator_rating, logistics_rating, overall_rating, highlights, improvements, additional_comments, submitted_at, flagged"
         )
         .eq("workshop_id", experienceId)
+        // Sprint 17: content_rating/etc. are nullable now — a null here
+        // means this response was submitted against a custom template (its
+        // answers live in survey_answers, surfaced separately via
+        // getSurveyResultsByTemplate) rather than the legacy hardcoded
+        // form. Filtering keeps this function's contract exactly as it was
+        // for genuinely legacy responses.
+        .not("overall_rating", "is", null)
         .order("submitted_at", { ascending: false }),
       supabase.from("participants").select("id, first_name"),
     ]);

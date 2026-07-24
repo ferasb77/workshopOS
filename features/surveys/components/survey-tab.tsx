@@ -16,7 +16,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import type { SurveyManagementData, SurveyParticipantRow } from "@/features/surveys/data";
+import type {
+  ExperienceSurveyTemplateResolution,
+  SurveyManagementData,
+  SurveyParticipantRow,
+  SurveyTemplateSummary,
+} from "@/features/surveys/data";
 
 import { SendAllSurveysButton } from "./send-all-surveys-button";
 import { SendSurveyButton } from "./send-survey-button";
@@ -25,6 +30,7 @@ import { ResendNonRespondersButton } from "./resend-non-responders-button";
 import { DownloadSurveyResultsButton } from "./download-survey-results-button";
 import { SurveyResponseModal } from "./survey-response-modal";
 import { SurveyStatusBadge } from "./survey-status-badge";
+import { SurveyTemplateSelector } from "./survey-template-selector";
 
 const REMINDER_ELIGIBLE_HOURS = 48;
 
@@ -52,7 +58,7 @@ function scoreColorClass(score: number): string {
 }
 
 function OverallScore({ row }: { row: SurveyParticipantRow }) {
-  if (!row.response) {
+  if (!row.response || row.response.overallRating === null) {
     return <span className="text-muted-foreground">—</span>;
   }
 
@@ -113,15 +119,26 @@ function RowActions({
 
 type Props = {
   data: SurveyManagementData;
+  templates: SurveyTemplateSummary[];
+  templateResolution: ExperienceSurveyTemplateResolution;
 };
 
-export function SurveyTab({ data }: Props) {
+export function SurveyTab({ data, templates, templateResolution }: Props) {
   const nonResponderCount = data.rows.filter(
     (row) => row.status === "sent"
   ).length;
 
   return (
     <div className="space-y-6">
+      <SurveyTemplateSelector
+        experienceId={data.experienceId}
+        experienceSlug={data.experienceSlug}
+        templates={templates}
+        activeSource={templateResolution.source}
+        activeTemplateName={templateResolution.template?.name ?? null}
+        overrideTemplateId={templateResolution.source === "override" ? templateResolution.template?.id ?? null : null}
+      />
+
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
         <SummaryTile label="Total Participants" value={String(data.totalParticipants)} />
         <SummaryTile label="Surveys Sent" value={String(data.surveysSent)} />

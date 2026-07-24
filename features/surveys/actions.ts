@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { requireEnv } from "@/infrastructure/env";
 import { getResendClient, getResendFromAddress } from "@/infrastructure/email/resend-client";
@@ -8,7 +9,13 @@ import { renderSurveyEmail, renderSurveyReminderEmail } from "@/infrastructure/e
 import { createClient } from "@/infrastructure/supabase/server";
 import { maybeAutoIssueCertificate } from "@/features/certificates/actions";
 
-import { surveyResponseSchema } from "./schema";
+import {
+  surveyResponseSchema,
+  surveyQuestionSchema,
+  surveyTemplateSchema,
+  type SurveyQuestionFormValues,
+} from "./schema";
+import { getSurveyTemplate, type SurveyTemplateWithQuestions } from "./data";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -608,10 +615,10 @@ export async function downloadSurveyResults(experienceId: string): Promise<strin
     return csvRow([
       participant ? `${participant.first_name} ${participant.last_name}` : "",
       participant?.company ?? "",
-      String(row.content_rating),
-      String(row.facilitator_rating),
-      String(row.logistics_rating),
-      String(row.overall_rating),
+      row.content_rating === null ? "" : String(row.content_rating),
+      row.facilitator_rating === null ? "" : String(row.facilitator_rating),
+      row.logistics_rating === null ? "" : String(row.logistics_rating),
+      row.overall_rating === null ? "" : String(row.overall_rating),
       row.highlights ?? "",
       row.improvements ?? "",
       row.additional_comments ?? "",
@@ -620,4 +627,376 @@ export async function downloadSurveyResults(experienceId: string): Promise<strin
   });
 
   return [csvRow(SURVEY_CSV_HEADER), ...csvRows].join("\r\n");
+}
+
+// ---------------------------------------------------------------------------
+// Survey templates
+// ---------------------------------------------------------------------------
+
+export type SaveSurveyTemplateResult =
+  | { success: true; templateId: string }
+  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+
+export async function createSurveyTemplate(
+  workspaceId: string,
+  _prevState: SaveSurveyTemplateResult | null,
+  formData: FormData
+): Promise<SaveSurveyTemplateResult> {
+  const parsed = surveyTemplateSchema.safeParse({
+    name: formData.get("name"),
+    description: formData.get("description"),
+  });
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: "Please correct the highlighted fields.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const supabase = await createClient();
+
+  const { data: inserted, error } = await supabase
+    .from("survey_templates")
+    .insert({ workspace_id: workspaceId, name: parsed.data.name, description: parsed.data.description ?? null })
+    .select("id")
+    .single();
+
+  if (error || !inserted) {
+    return { success: false, error: error?.message ?? "Unable to create template." };
+  }
+
+  revalidatePath("/dashboard/settings/surveys");
+  redirect(`/dashboard/settings/surveys/${inserted.id}/edit`);
+}
+
+export async function updateSurveyTemplate(
+  templateId: string,
+  _prevState: SaveSurveyTemplateResult | null,
+  formData: FormData
+): Promise<SaveSurveyTemplateResult> {
+  const parsed = surveyTemplateSchema.safeParse({
+    name: formData.get("name"),
+    description: formData.get("description"),
+  });
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: "Please correct the highlighted fields.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("survey_templates")
+    .update({
+      name: parsed.data.name,
+      description: parsed.data.description ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", templateId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/dashboard/settings/surveys");
+  revalidatePath(`/dashboard/settings/surveys/${templateId}/edit`);
+
+  return { success: true, templateId };
+}
+
+export type DeleteSurveyTemplateResult = { success: true } | { success: false; error: string };
+
+export async function deleteSurveyTemplate(templateId: string): Promise<DeleteSurveyTemplateResult> {
+  const supabase = await createClient();
+
+  const { error } = await supabase.from("survey_templates").delete().eq("id", templateId);
+
+  if (error) {
+    // A template referenced by experience_survey_templates.template_id (no
+    // ON DELETE action there) or by a still-live survey_questions row's
+    // template_id cascade is fine — but experience_survey_templates has no
+    // cascade, so deleting a template an experience explicitly overrides to
+    // fails with a foreign key violation. Surface that plainly rather than
+    // the raw Postgres error text.
+    if (error.message.includes("foreign key")) {
+      return {
+        success: false,
+        error: "This template is assigned to one or more experiences. Unassign it first.",
+      };
+    }
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/dashboard/settings/surveys");
+
+  return { success: true };
+}
+
+export type SetDefaultSurveyTemplateResult = { success: true } | { success: false; error: string };
+
+export async function setDefaultSurveyTemplate(
+  templateId: string,
+  workspaceId: string
+): Promise<SetDefaultSurveyTemplateResult> {
+  const supabase = await createClient();
+
+  const { error: clearError } = await supabase
+    .from("survey_templates")
+    .update({ is_default: false })
+    .eq("workspace_id", workspaceId)
+    .neq("id", templateId);
+
+  if (clearError) {
+    return { success: false, error: clearError.message };
+  }
+
+  const { error } = await supabase.from("survey_templates").update({ is_default: true }).eq("id", templateId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/dashboard/settings/surveys");
+
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// Survey questions
+// ---------------------------------------------------------------------------
+
+export type SaveQuestionResult =
+  | { success: true; questionId: string }
+  | { success: false; error: string };
+
+function questionInsertPayload(templateId: string, orderIndex: number, values: SurveyQuestionFormValues) {
+  return {
+    template_id: templateId,
+    order_index: orderIndex,
+    question_type: values.questionType,
+    question_text: values.questionText,
+    description: values.description ?? null,
+    is_required: values.isRequired,
+    options: values.options && values.options.length > 0 ? values.options : null,
+    low_label: values.lowLabel ?? null,
+    high_label: values.highLabel ?? null,
+  };
+}
+
+export async function addQuestion(templateId: string, values: SurveyQuestionFormValues): Promise<SaveQuestionResult> {
+  const parsed = surveyQuestionSchema.safeParse(values);
+
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Please check the question fields." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: existing, error: existingError } = await supabase
+    .from("survey_questions")
+    .select("order_index")
+    .eq("template_id", templateId)
+    .order("order_index", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingError) {
+    return { success: false, error: existingError.message };
+  }
+
+  const nextOrderIndex = (existing?.order_index ?? 0) + 1;
+
+  const { data: inserted, error } = await supabase
+    .from("survey_questions")
+    .insert(questionInsertPayload(templateId, nextOrderIndex, parsed.data))
+    .select("id")
+    .single();
+
+  if (error || !inserted) {
+    return { success: false, error: error?.message ?? "Unable to add question." };
+  }
+
+  revalidatePath(`/dashboard/settings/surveys/${templateId}/edit`);
+
+  return { success: true, questionId: inserted.id };
+}
+
+export async function updateQuestion(
+  questionId: string,
+  templateId: string,
+  values: SurveyQuestionFormValues
+): Promise<SaveQuestionResult> {
+  const parsed = surveyQuestionSchema.safeParse(values);
+
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Please check the question fields." };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("survey_questions")
+    .update({
+      question_type: parsed.data.questionType,
+      question_text: parsed.data.questionText,
+      description: parsed.data.description ?? null,
+      is_required: parsed.data.isRequired,
+      options: parsed.data.options && parsed.data.options.length > 0 ? parsed.data.options : null,
+      low_label: parsed.data.lowLabel ?? null,
+      high_label: parsed.data.highLabel ?? null,
+    })
+    .eq("id", questionId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath(`/dashboard/settings/surveys/${templateId}/edit`);
+
+  return { success: true, questionId };
+}
+
+export type DeleteQuestionResult = { success: true } | { success: false; error: string };
+
+export async function deleteQuestion(questionId: string, templateId: string): Promise<DeleteQuestionResult> {
+  const supabase = await createClient();
+
+  const { error } = await supabase.from("survey_questions").delete().eq("id", questionId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath(`/dashboard/settings/surveys/${templateId}/edit`);
+
+  return { success: true };
+}
+
+export type ReorderQuestionsResult = { success: true } | { success: false; error: string };
+
+/**
+ * Drag-to-reorder (HTML5 drag events, no library — see
+ * question-list-editor.tsx) sends the full ordered id list on every drop;
+ * this just re-numbers order_index to match array position. One update per
+ * row — supabase-js has no bulk "case when" upsert-by-position helper, and
+ * template question counts are small (single digits to low tens), so N
+ * sequential updates is not a real cost here.
+ */
+export async function reorderQuestions(templateId: string, orderedQuestionIds: string[]): Promise<ReorderQuestionsResult> {
+  const supabase = await createClient();
+
+  for (let index = 0; index < orderedQuestionIds.length; index++) {
+    const { error } = await supabase
+      .from("survey_questions")
+      .update({ order_index: index + 1 })
+      .eq("id", orderedQuestionIds[index])
+      .eq("template_id", templateId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  revalidatePath(`/dashboard/settings/surveys/${templateId}/edit`);
+
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// Assign a template to an experience (overrides the workspace default)
+// ---------------------------------------------------------------------------
+
+export type AssignExperienceSurveyTemplateResult = { success: true } | { success: false; error: string };
+
+export async function assignExperienceSurveyTemplate(
+  experienceId: string,
+  experienceSlug: string,
+  templateId: string | null
+): Promise<AssignExperienceSurveyTemplateResult> {
+  const supabase = await createClient();
+
+  if (templateId === null) {
+    const { error } = await supabase.from("experience_survey_templates").delete().eq("experience_id", experienceId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+  } else {
+    const { error } = await supabase
+      .from("experience_survey_templates")
+      .upsert({ experience_id: experienceId, template_id: templateId }, { onConflict: "experience_id" });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  revalidatePath(`/dashboard/experiences/${experienceSlug}`);
+
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// Custom template survey submission — the template-driven sibling of
+// submitSurveyResponse above. Kept as a separate action (rather than
+// overloading submitSurveyResponse's FormData/useActionState signature)
+// because the two forms have fundamentally different shapes: the legacy
+// form's four fixed fields fit useActionState/FormData cleanly, while a
+// dynamic per-template question list needs controlled client state to
+// validate "all required questions answered" before submitting — the same
+// reasoning as the completion-criteria form in features/certificates.
+// ---------------------------------------------------------------------------
+
+export type CustomSurveyAnswerInput = {
+  questionId: string;
+  answerNumeric?: number;
+  answerText?: string;
+  answerArray?: string[];
+};
+
+export type SubmitCustomSurveyResult = { success: true } | { success: false; error: string };
+
+export async function submitCustomSurveyResponse(
+  token: string,
+  answers: CustomSurveyAnswerInput[]
+): Promise<SubmitCustomSurveyResult> {
+  const supabase = await createClient();
+
+  const { error } = await supabase.rpc("submit_custom_survey_response", {
+    p_token: token,
+    p_answers: answers.map((answer) => ({
+      questionId: answer.questionId,
+      answerNumeric: answer.answerNumeric ?? null,
+      answerText: answer.answerText ?? null,
+      answerArray: answer.answerArray ?? null,
+    })),
+  });
+
+  if (error) {
+    if (error.message.includes("already_completed")) {
+      return { success: false, error: "This survey has already been completed." };
+    }
+    if (error.message.includes("invalid_token")) {
+      return { success: false, error: "This survey link is invalid." };
+    }
+    return { success: false, error: "Unable to submit your response. Please try again." };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Thin Server Action wrapper so the template list page's Preview button can
+ * load a template's full question set on demand (the list itself only
+ * fetches per-template question counts, not the questions) without a
+ * dedicated API route.
+ */
+export async function getTemplateForPreview(templateId: string): Promise<SurveyTemplateWithQuestions | null> {
+  return getSurveyTemplate(templateId);
 }

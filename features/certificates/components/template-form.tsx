@@ -128,7 +128,14 @@ export function TemplateForm({ action, submitLabel, template }: Props) {
 
           <div className="space-y-2">
             <Label htmlFor="fontFamily">Font family</Label>
-            <Select name="fontFamily" defaultValue={defaults.fontFamily}>
+            <Select
+              name="fontFamily"
+              defaultValue={defaults.fontFamily}
+              items={[
+                { value: "serif", label: "Serif" },
+                { value: "sans", label: "Sans-serif" },
+              ]}
+            >
               <SelectTrigger id="fontFamily" className="w-full">
                 <SelectValue />
               </SelectTrigger>

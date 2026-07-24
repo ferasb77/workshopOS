@@ -81,29 +81,38 @@ export function SurveyResponseModal({ row }: Props) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <DimensionScore label="Content" value={response.contentRating} />
-            <DimensionScore label="Facilitator" value={response.facilitatorRating} />
-            <DimensionScore label="Logistics" value={response.logisticsRating} />
-            <DimensionScore label="Overall" value={response.overallRating} />
-          </div>
-
-          <div className="space-y-4 text-sm">
-            <div>
-              <p className="mb-1 font-medium text-ivory">Most valuable</p>
-              <p className="text-muted-foreground">{response.highlights || "—"}</p>
-            </div>
-            <div>
-              <p className="mb-1 font-medium text-ivory">Could improve</p>
-              <p className="text-muted-foreground">{response.improvements || "—"}</p>
-            </div>
-            {response.additionalComments && (
-              <div>
-                <p className="mb-1 font-medium text-ivory">Other comments</p>
-                <p className="text-muted-foreground">{response.additionalComments}</p>
+          {response.overallRating !== null ? (
+            <>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <DimensionScore label="Content" value={response.contentRating ?? 0} />
+                <DimensionScore label="Facilitator" value={response.facilitatorRating ?? 0} />
+                <DimensionScore label="Logistics" value={response.logisticsRating ?? 0} />
+                <DimensionScore label="Overall" value={response.overallRating} />
               </div>
-            )}
-          </div>
+
+              <div className="space-y-4 text-sm">
+                <div>
+                  <p className="mb-1 font-medium text-ivory">Most valuable</p>
+                  <p className="text-muted-foreground">{response.highlights || "—"}</p>
+                </div>
+                <div>
+                  <p className="mb-1 font-medium text-ivory">Could improve</p>
+                  <p className="text-muted-foreground">{response.improvements || "—"}</p>
+                </div>
+                {response.additionalComments && (
+                  <div>
+                    <p className="mb-1 font-medium text-ivory">Other comments</p>
+                    <p className="text-muted-foreground">{response.additionalComments}</p>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="rounded-lg border border-border-subtle bg-night/40 p-4 text-sm text-muted-foreground">
+              This response was submitted using a custom survey template. See the Survey Results tab for the
+              full per-question breakdown.
+            </p>
+          )}
 
           <div className="flex items-center justify-between gap-3 border-t border-border-subtle pt-4">
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
