@@ -6,6 +6,7 @@ import { requireEnv } from "@/infrastructure/env";
 import { getResendClient, getResendFromAddress } from "@/infrastructure/email/resend-client";
 import { renderSurveyEmail, renderSurveyReminderEmail } from "@/infrastructure/email/survey-email";
 import { createClient } from "@/infrastructure/supabase/server";
+import { maybeAutoIssueCertificate } from "@/features/certificates/actions";
 
 import { surveyResponseSchema } from "./schema";
 
@@ -278,6 +279,18 @@ export async function submitSurveyResponse(
     }
 
     return { success: false, error: "Unable to submit your response. Please try again." };
+  }
+
+  // Fire-and-forget, same reasoning as the check-in flow: a certificate
+  // hiccup must never surface as a survey-submission failure.
+  const { data: tokenRow } = await supabase
+    .from("survey_tokens")
+    .select("participant_id, workshop_id")
+    .eq("token", parsed.data.token)
+    .maybeSingle();
+
+  if (tokenRow) {
+    void maybeAutoIssueCertificate(tokenRow.participant_id, tokenRow.workshop_id);
   }
 
   return { success: true };

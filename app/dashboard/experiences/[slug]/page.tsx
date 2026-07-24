@@ -7,6 +7,13 @@ import { ExperienceStatusBadge } from "@/features/dashboard/components/experienc
 import { SurveyResultsPanel } from "@/features/surveys/components/survey-results-panel";
 import { SurveyTab } from "@/features/surveys/components/survey-tab";
 import { getSurveyManagementData } from "@/features/surveys/data";
+import { CertificatesTab } from "@/features/certificates/components/certificates-tab";
+import {
+  getCertificateTemplates,
+  getExperienceCertificates,
+  getExperienceCompletionCriteria,
+} from "@/features/certificates/data";
+import { getSessionContext } from "@/infrastructure/session/session-context";
 import { LogisticsTab } from "@/features/experiences/components/logistics-tab";
 import { ParticipantsTab } from "@/features/experiences/components/participants-tab";
 import { RegistrationLinkPanel } from "@/features/experiences/components/registration-link-panel";
@@ -61,6 +68,19 @@ export default async function ExperienceDetailPage({ params, searchParams }: Pro
     activeTab === "logistics" ? await getExperienceLogisticsTasks(experience.id) : null;
   const surveyManagementData =
     activeTab === "surveys" ? await getSurveyManagementData(experience.id) : null;
+
+  const certificatesData =
+    activeTab === "certificates"
+      ? await (async () => {
+          const session = await getSessionContext();
+          const [criteria, templates, rows] = await Promise.all([
+            getExperienceCompletionCriteria(experience.id),
+            getCertificateTemplates(session.workspaceId),
+            getExperienceCertificates(experience.id),
+          ]);
+          return { criteria, templates, rows };
+        })()
+      : null;
 
   const isLocked = experience.status === "completed" || experience.status === "cancelled";
   const unsentSurveyCount = participants.filter((p) => p.surveyStatus === "not_sent").length;
@@ -169,6 +189,15 @@ export default async function ExperienceDetailPage({ params, searchParams }: Pro
       )}
 
       {activeTab === "surveys" && surveyManagementData && <SurveyTab data={surveyManagementData} />}
+
+      {activeTab === "certificates" && certificatesData && (
+        <CertificatesTab
+          experienceId={experience.id}
+          criteria={certificatesData.criteria}
+          templates={certificatesData.templates}
+          rows={certificatesData.rows}
+        />
+      )}
     </div>
   );
 }

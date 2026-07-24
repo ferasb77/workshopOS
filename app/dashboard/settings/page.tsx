@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { ChevronRight, Award } from "lucide-react";
+
 import {
   Card,
   CardContent,
@@ -42,6 +45,23 @@ export default async function SettingsPage() {
             </p>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="mt-8">
+        <h2 className="text-lg font-semibold text-ivory">Configuration</h2>
+        <Link
+          href="/dashboard/settings/certificates"
+          className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface-elevated p-4 transition-colors hover:border-gold/40"
+        >
+          <div className="flex items-center gap-3">
+            <Award className="size-5 text-gold" />
+            <div>
+              <p className="font-medium text-ivory">Certificate Templates</p>
+              <p className="text-sm text-muted-foreground">Branding and content for issued certificates.</p>
+            </div>
+          </div>
+          <ChevronRight className="size-4 text-muted-foreground" />
+        </Link>
       </div>
     </div>
   );

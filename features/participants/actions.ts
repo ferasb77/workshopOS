@@ -5,6 +5,7 @@ import type { CheckInResult } from "./types";
 import { createClient } from "@/infrastructure/supabase/server";
 import { fetchFilteredParticipants } from "./data";
 import type { ParticipantFilters, ParticipantSurveyStatus } from "./data";
+import { maybeAutoIssueCertificate } from "@/features/certificates/actions";
 
 export async function checkInParticipant(
   _: CheckInResult | null,
@@ -50,17 +51,21 @@ export async function checkInParticipant(
     };
   }
 
-  const { error } = await supabase.from("participants").insert({
-    workshop_slug: parsed.data.workshopSlug,
-    first_name: parsed.data.firstName,
-    last_name: parsed.data.lastName,
-    email: parsed.data.email,
-    mobile: parsed.data.mobile,
-    company: parsed.data.company,
-    job_title: parsed.data.jobTitle,
-    checked_in: true,
-    source: "QR",
-  });
+  const { data: insertedParticipant, error } = await supabase
+    .from("participants")
+    .insert({
+      workshop_slug: parsed.data.workshopSlug,
+      first_name: parsed.data.firstName,
+      last_name: parsed.data.lastName,
+      email: parsed.data.email,
+      mobile: parsed.data.mobile,
+      company: parsed.data.company,
+      job_title: parsed.data.jobTitle,
+      checked_in: true,
+      source: "QR",
+    })
+    .select("id")
+    .single();
 
   if (error) {
     console.error(error);
@@ -69,6 +74,23 @@ export async function checkInParticipant(
       success: false,
       message: "Unable to complete check-in. Please try again.",
     };
+  }
+
+  // Fire-and-forget: PDF generation + email would add multiple seconds to
+  // a public check-in submission, and a certificate hiccup here must never
+  // block or fail the check-in itself. maybeAutoIssueCertificate already
+  // swallows its own errors and is a no-op unless the experience has
+  // auto-issue on and this participant is already eligible.
+  if (insertedParticipant) {
+    const { data: experienceRow } = await supabase
+      .from("experiences")
+      .select("id")
+      .eq("slug", parsed.data.workshopSlug)
+      .maybeSingle();
+
+    if (experienceRow) {
+      void maybeAutoIssueCertificate(insertedParticipant.id, experienceRow.id);
+    }
   }
 
   return {
